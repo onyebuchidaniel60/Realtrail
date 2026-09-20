@@ -33,8 +33,16 @@ export async function getCurrentUser(
   if (existing !== null) {
     return existing;
   }
+  // Mirroring requires a write context. Queries run against users that a
+  // prior mutation has already mirrored; convex-test's t.run counts as one.
+  if (typeof (ctx.db as { insert?: unknown }).insert !== "function") {
+    appError(
+      "UNAUTHENTICATED",
+      "No user record exists for this identity yet.",
+    );
+  }
   const now = Date.now();
-  const userId: Id<"users"> = await ctx.db.insert("users", {
+  const userId: Id<"users"> = await (ctx as MutationCtx).db.insert("users", {
     clerkUserId: identity.subject,
     email: identity.email ?? undefined,
     name: identity.name ?? undefined,
