@@ -266,6 +266,7 @@ Tables:
 13. `inboundEvents`
 14. `notifications`
 15. `confirmationTokens`
+16. `caseCounters`
 
 ### Common ID strategy
 
@@ -427,12 +428,12 @@ updatedAt: number
 ```
 
 Indexes:
-- `by_workspace`
-- `by_workspace_status`
-- `by_workspace_priority`
-- `by_workspace_property`
-- `by_workspace_assignee`
-- `by_workspace_lastActivity`
+- `by_workspaceId`
+- `by_workspaceId_and_status`
+- `by_workspaceId_and_priority`
+- `by_workspaceId_and_propertyId`
+- `by_workspaceId_and_assigneeId`
+- `by_workspaceId_and_lastActivityAt`
 - `by_agentmail_thread` if stored as case-level thread mapping
 - text search indexes on title/description as supported by Convex.
 
@@ -456,10 +457,24 @@ createdAt: number
 ```
 
 Indexes:
-- `by_case`
-- `by_workspace_createdAt`
+- `by_caseId`
+- `by_workspaceId_and_createdAt`
 
 Activity records are append-only in MVP.
+
+## caseCounters
+
+```text
+_id
+workspaceId: Id<workspaces>
+nextNumber: number
+```
+
+Indexes:
+- `by_workspaceId`
+
+Per-workspace monotonic counter for case numbers. Allocated inside the
+creating mutation's transaction; never timestamps or random values.
 
 ## communications
 
@@ -1752,16 +1767,18 @@ units.by_buildingId
 units.by_propertyId
 units.by_workspaceId
 
-cases.by_workspace
-cases.by_workspace_status
-cases.by_workspace_priority
-cases.by_workspace_property
-cases.by_workspace_assignee
-cases.by_workspace_lastActivity
+cases.by_workspaceId
+cases.by_workspaceId_and_status
+cases.by_workspaceId_and_priority
+cases.by_workspaceId_and_propertyId
+cases.by_workspaceId_and_assigneeId
+cases.by_workspaceId_and_lastActivityAt
 cases.by_agentmail_thread
 
-caseActivities.by_case
-caseActivities.by_workspace_createdAt
+caseActivities.by_caseId
+caseActivities.by_workspaceId_and_createdAt
+
+caseCounters.by_workspaceId
 
 communications.by_case
 communications.by_agentmail_thread
