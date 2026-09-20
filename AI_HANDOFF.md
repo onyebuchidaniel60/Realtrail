@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 through 1.3 complete. 1.4-A complete (backend API surface). 1.4-B pending (frontend shell + routing).**
+**Phase 1 — Project Foundation (complete). Phase 2 (properties/buildings/units) pending.**
 
 ---
 
@@ -159,6 +159,7 @@ Application implementation (in progress):
 - Phase 1.3-B: CLERK_FRONTEND_API_URL set as a Convex env var. VITE_CLERK_PUBLISHABLE_KEY configured in .env.local. auth.config.ts verified against the deployed Cloud dev deployment. Auth and authorization helpers covered by tests (count: 11 — 6 auth, 5 authorization, all passing via convex-test withIdentity).
 - ARCHITECTURE.md §6 index names reconciled with Convex convention (d7974a1 covered §31; this task covered §6).
 - Phase 1.4-A: Added users.syncUser mutation (mirrors Clerk identity to users table, idempotent). Added workspace.getCurrent query (returns workspace + member + needsOnboarding; handles unauthenticated and no-membership cases). Added workspace.create mutation (atomic workspace + owner membership; rejects duplicate membership; validates timezone and currency). All three covered by tests (total test count: 27 — 13 existing + 4 users + 10 workspace).
+- Phase 1.4-B: Frontend shell and routing complete. Routes: /sign-in, /sign-up, /onboarding, /overview, /cases, /inbox, /properties, /vendors, /settings (placeholders for later phases). AppShell with responsive sidebar (persistent ≥1280px, collapsible tablet, drawer mobile). ProtectedRoute guard. Boot-time users.syncUser call. Onboarding form calls workspace.create. Placeholder pages render for later-phase screens. Design tokens deferred to Phase 12.
 
 ---
 
@@ -239,6 +240,16 @@ convex/users.ts
 convex/workspace.ts
 ```
 
+Phase 1.4-B frontend shell:
+
+```text
+src/routes/ (all route components)
+src/components/layout/AppShell.tsx
+src/components/layout/Sidebar.tsx
+src/components/layout/ProtectedRoute.tsx
+src/hooks/useSyncUser.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -298,6 +309,9 @@ Watch especially:
 - Identity key choice: we use `clerkUserId` (from identity.subject) as the primary identity key, NOT `tokenIdentifier`. Rationale: Realtrail is Clerk-only; no multi-provider scenario exists; schema was deployed with `by_clerkUserId`. If a second auth provider is ever added, revisit.
 - The user mirroring pattern: getCurrentUser in convex/lib/auth.ts only mirrors users in mutation context. The frontend MUST call users.syncUser once on app boot before any query that depends on the user row existing. Phase 1.4-B implements this call in the app boot sequence.
 - Multi-workspace users are not supported in MVP. workspace.create rejects a second workspace. workspace.getCurrent returns the most recent membership if multiple exist (defensive).
+- Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
+- Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
+- The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
 
 ---
 
@@ -320,4 +334,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 1.4-B — frontend app shell and routing. Scope: /sign-in route with Clerk <SignIn>, /sign-up route with Clerk <SignUp>, /onboarding route calling users.syncUser then workspace.create, protected /overview route, AppShell layout with responsive sidebar skeleton, route guards that redirect unauthenticated users to /sign-in, and a boot-time users.syncUser call.**
+**Phase 2 — Workspace and property structure. Scope: properties, buildings, units tables in convex/schema.ts; properties.create, buildings.create, units.create mutations; properties.list, buildings.list, units.list queries; onboarding extended to create workspace + first property atomically; properties screen with building/unit forms; tests for ownership and cross-workspace IDOR.**
