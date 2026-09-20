@@ -1,7 +1,11 @@
-// Placeholder auth configuration.
-// Clerk wiring lands in Phase 1.3: this file will then list the Clerk
-// issuer domain as a provider. Kept structurally valid so the dev
-// deployment typechecks and runs without authentication in the meantime.
+// Clerk issuer configuration. CLERK_FRONTEND_API_URL is set on the Convex
+// deployment via `npx convex env set` in Phase 1.3-B; until then the dev
+// deployment cannot validate Clerk tokens.
 export default {
-  providers: [],
+  providers: [
+    {
+      domain: process.env.CLERK_FRONTEND_API_URL,
+      applicationID: "convex",
+    },
+  ],
 };
