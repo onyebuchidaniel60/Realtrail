@@ -11,6 +11,8 @@
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_authorization from "../lib/authorization.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as users from "../users.js";
+import type * as workspace from "../workspace.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +24,8 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/authorization": typeof lib_authorization;
   "lib/errors": typeof lib_errors;
+  users: typeof users;
+  workspace: typeof workspace;
 }>;
 
 /**
