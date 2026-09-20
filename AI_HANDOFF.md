@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 through 1.3 complete. 1.4 (API surface + shell) pending.**
+**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 through 1.3 complete. 1.4-A complete (backend API surface). 1.4-B pending (frontend shell + routing).**
 
 ---
 
@@ -158,6 +158,7 @@ Application implementation (in progress):
 - Reconciled ARCHITECTURE.md §31 index names with Convex convention (by_workspaceId, by_userId, by_workspaceId_and_userId).
 - Phase 1.3-B: CLERK_FRONTEND_API_URL set as a Convex env var. VITE_CLERK_PUBLISHABLE_KEY configured in .env.local. auth.config.ts verified against the deployed Cloud dev deployment. Auth and authorization helpers covered by tests (count: 11 — 6 auth, 5 authorization, all passing via convex-test withIdentity).
 - ARCHITECTURE.md §6 index names reconciled with Convex convention (d7974a1 covered §31; this task covered §6).
+- Phase 1.4-A: Added users.syncUser mutation (mirrors Clerk identity to users table, idempotent). Added workspace.getCurrent query (returns workspace + member + needsOnboarding; handles unauthenticated and no-membership cases). Added workspace.create mutation (atomic workspace + owner membership; rejects duplicate membership; validates timezone and currency). All three covered by tests (total test count: 27 — 13 existing + 4 users + 10 workspace).
 
 ---
 
@@ -231,6 +232,13 @@ convex/lib/auth.ts
 convex/lib/authorization.ts
 ```
 
+Phase 1.4-A API surface:
+
+```text
+convex/users.ts
+convex/workspace.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -288,6 +296,8 @@ Watch especially:
 - CLERK_FRONTEND_API_URL is not yet set on the Convex deployment. auth.config.ts references it; schema pushes may fail until it is set. Phase 1.3-B sets it.
 - VITE_CLERK_PUBLISHABLE_KEY in .env.local is now the real Clerk key (set in Phase 1.3-B); the file remains gitignored and must never be committed.
 - Identity key choice: we use `clerkUserId` (from identity.subject) as the primary identity key, NOT `tokenIdentifier`. Rationale: Realtrail is Clerk-only; no multi-provider scenario exists; schema was deployed with `by_clerkUserId`. If a second auth provider is ever added, revisit.
+- The user mirroring pattern: getCurrentUser in convex/lib/auth.ts only mirrors users in mutation context. The frontend MUST call users.syncUser once on app boot before any query that depends on the user row existing. Phase 1.4-B implements this call in the app boot sequence.
+- Multi-workspace users are not supported in MVP. workspace.create rejects a second workspace. workspace.getCurrent returns the most recent membership if multiple exist (defensive).
 
 ---
 
@@ -310,4 +320,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 1.4 — API surface and app shell. Scope: workspace.getCurrent and workspace.create queries/mutations, /sign-in and /sign-up routes, /onboarding placeholder, protected AppShell with responsive sidebar skeleton, and route guards that redirect unauthenticated users to /sign-in.**
+**Phase 1.4-B — frontend app shell and routing. Scope: /sign-in route with Clerk <SignIn>, /sign-up route with Clerk <SignUp>, /onboarding route calling users.syncUser then workspace.create, protected /overview route, AppShell layout with responsive sidebar skeleton, route guards that redirect unauthenticated users to /sign-in, and a boot-time users.syncUser call.**
