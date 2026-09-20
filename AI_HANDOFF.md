@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 1 — Project Foundation (complete). Phase 2 (properties/buildings/units) pending.**
+**Phase 2 — Workspace and Property Structure (in progress). Sub-task 2-A complete (backend estate hierarchy). 2-B pending (Properties screen + onboarding extension).**
 
 ---
 
@@ -160,6 +160,7 @@ Application implementation (in progress):
 - ARCHITECTURE.md §6 index names reconciled with Convex convention (d7974a1 covered §31; this task covered §6).
 - Phase 1.4-A: Added users.syncUser mutation (mirrors Clerk identity to users table, idempotent). Added workspace.getCurrent query (returns workspace + member + needsOnboarding; handles unauthenticated and no-membership cases). Added workspace.create mutation (atomic workspace + owner membership; rejects duplicate membership; validates timezone and currency). All three covered by tests (total test count: 27 — 13 existing + 4 users + 10 workspace).
 - Phase 1.4-B: Frontend shell and routing complete. Routes: /sign-in, /sign-up, /onboarding, /overview, /cases, /inbox, /properties, /vendors, /settings (placeholders for later phases). AppShell with responsive sidebar (persistent ≥1280px, collapsible tablet, drawer mobile). ProtectedRoute guard. Boot-time users.syncUser call. Onboarding form calls workspace.create. Placeholder pages render for later-phase screens. Design tokens deferred to Phase 12.
+- Phase 2-A: Added properties, buildings, units tables with indexes. Extended workspace.create to create the first property atomically (single mutation, atomic). Added properties/buildings/units CRUD mutations and list queries with cross-workspace IDOR enforcement. All covered by tests (total test count: 52).
 
 ---
 
@@ -238,6 +239,9 @@ Phase 1.4-A API surface:
 ```text
 convex/users.ts
 convex/workspace.ts
+convex/properties.ts
+convex/buildings.ts
+convex/units.ts
 ```
 
 Phase 1.4-B frontend shell:
@@ -309,6 +313,8 @@ Watch especially:
 - Identity key choice: we use `clerkUserId` (from identity.subject) as the primary identity key, NOT `tokenIdentifier`. Rationale: Realtrail is Clerk-only; no multi-provider scenario exists; schema was deployed with `by_clerkUserId`. If a second auth provider is ever added, revisit.
 - The user mirroring pattern: getCurrentUser in convex/lib/auth.ts only mirrors users in mutation context. The frontend MUST call users.syncUser once on app boot before any query that depends on the user row existing. Phase 1.4-B implements this call in the app boot sequence.
 - Multi-workspace users are not supported in MVP. workspace.create rejects a second workspace. workspace.getCurrent returns the most recent membership if multiple exist (defensive).
+- workspace.create now requires propertyName and propertyAddress. Any caller with the old signature will fail validation.
+- Building.propertyId is the source of truth for unit.propertyId. Do not accept unit.propertyId from client input.
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
@@ -334,4 +340,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 2 — Workspace and property structure. Scope: properties, buildings, units tables in convex/schema.ts; properties.create, buildings.create, units.create mutations; properties.list, buildings.list, units.list queries; onboarding extended to create workspace + first property atomically; properties screen with building/unit forms; tests for ownership and cross-workspace IDOR.**
+**Phase 2-B — Properties screen and onboarding extension. Scope: extend the onboarding form to collect property name/address; build the Properties screen with property/building/unit views; wire to backend mutations/queries; test the create-property, create-building, create-unit flows end-to-end.**
