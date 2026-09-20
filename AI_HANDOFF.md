@@ -125,14 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-At the beginning of implementation:
-
-**Phase 0 — Repository Reconnaissance**
-
-No application implementation should begin until the agent has:
-- inspected repository;
-- reviewed docs;
-- reported current structure and conflicts.
+**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 and 1.1b complete; 1.1c completing; 1.2 (Convex init) pending.**
 
 ---
 
@@ -151,8 +144,12 @@ At project creation:
 - integration architecture complete;
 - phased implementation plan complete.
 
-Application implementation:
-- not started.
+Application implementation (in progress):
+
+- Phase 0 reconnaissance complete.
+- Pre-Phase-1 environment setup complete (execution policy, fnm + Node 22 pin, spec baseline commit).
+- Phase 1.1 scaffold + Phase 1.1b fixes committed at 94dfe37: Vite + React + TS + Tailwind v4 + shadcn/ui + routing + Vitest + Playwright, all five verification commands passing. (Phase 1.1b: typecheck script fixed to actually catch errors; postcss/autoprefixer/tailwindcss-animate removed; @/ relocation verified clean.)
+- Phase 1.1c committed at 3dc853d: `cn` helper verified canonical (shadcn `cn` package, drop-in for clsx + tailwind-merge); oxlint removed, eslint is the linter.
 
 ---
 
@@ -187,6 +184,15 @@ AI_HANDOFF.md
 hackathon.md
 ```
 
+Scaffold configuration added in Phase 1.1:
+
+```text
+.nvmrc (Node 22 pin — required on every fresh shell)
+components.json (shadcn/ui config)
+playwright.config.ts
+vite.config.ts (includes Vitest block)
+```
+
 Recommended application structure:
 
 ```text
@@ -200,7 +206,7 @@ docs/
 
 # 10. Verification commands
 
-Expected commands:
+Established commands:
 
 ```text
 npm run dev
@@ -211,7 +217,7 @@ npm run build
 npm run test:e2e
 ```
 
-The exact script names may be established in Phase 1.
+The exact script names were established in Phase 1.1.
 
 ---
 
@@ -229,6 +235,9 @@ Watch especially:
 - accidentally exposing private email content;
 - accidentally exposing provider API keys;
 - rendering untrusted email HTML.
+- fnm requires per-shell bootstrap via $PROFILE (configured 2026-09-20; fresh shells now auto-switch via .nvmrc).
+- Tailwind is v4 (CSS-first). Do not reintroduce postcss.config.js or tailwind.config.js.
+- shadcn/ui CLI is pinned to 4.20.0 in components.json; 4.21.0 had a workspace-config load bug at init time.
 
 ---
 
@@ -251,15 +260,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 0 — Repository Reconnaissance**
-
-Agent must:
-- inspect existing repository;
-- identify existing stack;
-- identify existing Convex configuration;
-- identify existing files/components;
-- compare against architecture;
-- report conflicts;
-- make no application changes.
-
-STOP after reporting.
+**Phase 1.2 — Convex initialization. Region EU West (Ireland) must be selected before `npx convex dev` runs (ARCHITECTURE.md §20; region is irreversible). Scope: convex/schema.ts with users, workspaces, workspaceMembers tables and their required indexes only; convex/auth.config.ts. No Clerk wiring yet (that is Phase 1.3).**
