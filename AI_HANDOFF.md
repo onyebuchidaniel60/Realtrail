@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 and 1.1b complete; 1.1c completing; 1.2 (Convex init) pending.**
+**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1, 1.1b, 1.1c, 1.2 complete. 1.3 (Clerk wiring) pending.**
 
 ---
 
@@ -150,9 +150,10 @@ Application implementation (in progress):
 - Pre-Phase-1 environment setup complete (execution policy, fnm + Node 22 pin, spec baseline commit).
 - Phase 1.1 scaffold + Phase 1.1b fixes committed at 94dfe37: Vite + React + TS + Tailwind v4 + shadcn/ui + routing + Vitest + Playwright, all five verification commands passing. (Phase 1.1b: typecheck script fixed to actually catch errors; postcss/autoprefixer/tailwindcss-animate removed; @/ relocation verified clean.)
 - Phase 1.1c committed at 3dc853d: `cn` helper verified canonical (shadcn `cn` package, drop-in for clsx + tailwind-merge); oxlint removed, eslint is the linter.
-- Convex All Gas Hackathon setup executed per official prompt. Environment: OpenCode (Muse Spark). Convex skills (32) + MCP configured (restart-pending). Hackathon skill installed project-locally. hackathon.md created at project root. Frontend hosting decision recorded: Convex static hosting (convex.site).
+- Convex All Gas Hackathon setup executed per official prompt. Environment: OpenCode (Muse Spark). Convex skills (33) + MCP configured (restart-pending). Hackathon skill installed project-locally. hackathon.md created at project root. Frontend hosting decision recorded: Convex static hosting (convex.site).
 - Read-only conflict audit completed: 0 blocking conflicts. Precedence section added to AGENTS.md establishing: Convex wins on Convex-platform questions; our docs win on Realtrail product/scope/security/integration questions. MCP state-modifying tools constrained to per-task human approval.
 - convex/_generated/ bindings committed (fresh-clone reproducibility).
+- Phase 1.2: Convex cloud dev deployment provisioned at eu-west-dev (EU West, Ireland; https://utmost-stork-432.eu-west-1.convex.cloud). Base schema (users, workspaces, workspaceMembers) deployed. convex-test harness operational. Convex MCP server confirmed active post-restart.
 
 ---
 
@@ -201,13 +202,22 @@ Hackathon setup artifacts:
 ```text
 hackathon.md (root — judge-facing build log)
 .agents/skills/convex-hackathon-skill/ (project-local skill we installed)
-.agents/skills/convex*/ (32 Convex capability skills — regenerable via `npx convex ai-files install`)
+.agents/skills/convex*/ (33 Convex capability skills — regenerable via `npx convex ai-files install`)
 .claude/ (mirror of .agents/skills for Claude Code compatibility)
 skills-lock.json (Convex ai-files lockfile)
 CLAUDE.md (Convex-managed pointer block; no Realtrail content)
 convex/_generated/ (generated bindings; committed per Convex docs)
 convex/_generated/ai/guidelines.md (Convex API guidance — authoritative on Convex-platform questions)
 .env.example (committed environment template — no secrets)
+```
+
+Phase 1.2 backend files:
+
+```text
+convex/schema.ts
+convex/auth.config.ts (placeholder — Clerk wiring in 1.3)
+convex/lib/errors.ts
+convex/schema.test.ts
 ```
 
 Recommended application structure:
@@ -261,6 +271,9 @@ Watch especially:
 - The hackathon skill must be re-run periodically (`/hackathon`) to keep the build log current, only after a task's verification commands pass.
 - MCP server is configured but inactive until OpenCode is restarted.
 - ARCHITECTURE.md §31 index names may need reconciliation with current Convex guidance (e.g. `by_workspaceId_and_userId` vs `by_workspace_user`). Per the precedence rule, Convex's convention wins on index naming.
+- Active Convex deployment: eu-west-dev (dev type). Do not push to prod without explicit approval.
+- Convex MCP state-modifying tools (data, run, runOneoffQuery, envSet, envRemove) require per-task human approval per the AGENTS.md precedence section.
+- Convex MCP server spawns multiple instances across OpenCode sessions. This is an observation, not a fault; instances consolidate on full editor restart.
 
 ---
 
@@ -283,4 +296,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 1.2 — resume from Step A3. Human must (1) restart OpenCode to activate the Convex MCP server and project-local skills, and (2) complete `npx convex login` plus project creation in EU West (Ireland). After both, resume the Phase 1.2 Part B schema work. Also queued: reconcile ARCHITECTURE.md §31 index names with current Convex guidance in a single small docs commit.**
+**Phase 1.3 — Clerk wiring. Scope: install @clerk/clerk-react, configure ClerkProvider, wire Convex–Clerk JWT template via convex/auth.config.ts, create convex/lib/auth.ts and convex/lib/authorization.ts helpers, add CLERK_FRONTEND_API_URL as a Convex env var via `npx convex env set`, install test-time auth tooling, prove authenticated + unauthenticated paths at the Convex function level. Also queued: reconcile ARCHITECTURE.md §31 index names with Convex's convention used in schema.ts.**
