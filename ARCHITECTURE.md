@@ -319,9 +319,9 @@ updatedAt: number
 ```
 
 Indexes:
-- `by_workspace`
-- `by_user`
-- `by_workspace_user`
+- `by_workspaceId`
+- `by_userId`
+- `by_workspaceId_and_userId`
 
 Unique invariant:
 - one user/role membership per workspace.
