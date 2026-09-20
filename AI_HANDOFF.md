@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 2 — Workspace and Property Structure (complete). Phase 3 (Case domain and state machine) pending.**
+**Phase 3 — Case Domain and State Machine (in progress). Sub-task 3-A complete (backend case domain). 3-B pending (Cases screen + Case Detail).**
 
 ---
 
@@ -162,6 +162,7 @@ Application implementation (in progress):
 - Phase 1.4-B: Frontend shell and routing complete. Routes: /sign-in, /sign-up, /onboarding, /overview, /cases, /inbox, /properties, /vendors, /settings (placeholders for later phases). AppShell with responsive sidebar (persistent ≥1280px, collapsible tablet, drawer mobile). ProtectedRoute guard. Boot-time users.syncUser call. Onboarding form calls workspace.create. Placeholder pages render for later-phase screens. Design tokens deferred to Phase 12.
 - Phase 2-A: Added properties, buildings, units tables with indexes. Extended workspace.create to create the first property atomically (single mutation, atomic). Added properties/buildings/units CRUD mutations and list queries with cross-workspace IDOR enforcement. All covered by tests (total test count: 52).
 - Phase 2-B: Extended onboarding form to collect property name/address (removed compat shim). Built Properties screen with property/building/unit hierarchy navigation and create/edit drawers. Added shared components: EmptyState, LoadingSkeleton, ErrorState, StatusBadge. Frontend tests cover the property/building/unit drill-down.
+- Phase 3-A: Added cases, caseActivities, caseCounters tables with indexes. Implemented state machine helper (pure logic, all transitions + role rules). Added cases.createManual (with per-workspace monotonic case numbers), cases.updateFields, cases.assign, cases.addNote, cases.transitionStatus, cases.close, cases.reopen. Added cases.get (with computed allowedActions) and cases.list (search, filters, pagination). Cross-workspace IDOR returns NOT_FOUND per Phase 2-A convention. Case tests: 78 across state-machine (34), mutations (34), queries (10); suite total 136.
 
 ---
 
@@ -255,6 +256,15 @@ src/components/common/ErrorState.tsx
 src/components/common/StatusBadge.tsx
 ```
 
+Phase 3-A case domain:
+
+```text
+convex/cases/stateMachine.ts (single source of truth for transition rules)
+convex/cases/queries.ts
+convex/cases/mutations.ts
+convex/cases/number.ts
+```
+
 Phase 1.4-B frontend shell:
 
 ```text
@@ -329,6 +339,11 @@ Watch especially:
 - Onboarding form fields grew from 3 to 5. The property must be created atomically with the workspace (backend does this in a single mutation).
 - Properties screen has no delete flow in MVP — deliberate. Do not add one without explicit approval.
 - Existence-hiding convention established in Phase 2-A: cross-workspace access throws NOT_FOUND, not FORBIDDEN. Apply this pattern to case-related queries and mutations in Phase 3.
+- Case status transitions MUST go through cases.transitionStatus or cases.close. Do not patch `status` directly from any other mutation. The state machine helper is the authority; bypassing it is a bug.
+- Cases cannot be CLOSED via cases.transitionStatus. Closing has its own mutation with reason validation.
+- RESOLVED cannot be set via cases.transitionStatus — it comes from the resident confirmation flow (Phase 9) or authorized manager action via a dedicated mutation added in that phase.
+- Staff cannot close cases or downgrade URGENT priority. This is enforced at the mutation layer.
+- caseNumber allocation uses caseCounters with a transaction-safe increment. Never use timestamps or Math.random for case numbers.
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
@@ -354,4 +369,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 3-A — Case domain and state machine (backend). Scope: cases and caseActivities tables; case number generation per workspace; the full state machine helper (allowed transitions, role rules, closure rules); cases.createManual, cases.updateFields, cases.assign, cases.addNote, cases.transitionStatus, cases.close, cases.reopen mutations; cases.get, cases.list queries; cross-workspace IDOR tests; allowed/denied transition matrix tests.**
+**Phase 3-B — Cases screen and Case Detail UI. Scope: Cases list with metrics strip, filters, search, sort (desktop table + mobile cards). Case Detail with header, activity timeline, issue fields, next-action panel, edit/assign/status/note dialogs. Wire to cases.list, cases.get, and all case mutations. Frontend tests for list filtering and detail rendering. Do not build AI summary, vendor section, or communications sections yet — those come in later phases.**
