@@ -90,7 +90,17 @@ export function OnboardingPage() {
     }
     setSubmitting(true);
     try {
-      await createWorkspace({ workspaceName, timezone, currency });
+      // TODO(Phase 2-B): collect propertyName/propertyAddress from new form
+      // fields. Until then the server rejects the empty values below, so
+      // onboarding submission shows a validation message instead of
+      // creating junk data.
+      await createWorkspace({
+        workspaceName,
+        timezone,
+        currency,
+        propertyName: "",
+        propertyAddress: "",
+      });
       setDone(true);
     } catch (err) {
       const code =
@@ -105,7 +115,11 @@ export function OnboardingPage() {
         setDone(true);
         return;
       }
-      if (code === "VALIDATION_ERROR" && field) {
+      if (
+        code === "VALIDATION_ERROR" &&
+        field &&
+        ["workspaceName", "timezone", "currency"].includes(field)
+      ) {
         setFieldErrors({ [field]: "This value was rejected. Check and retry." });
         return;
       }

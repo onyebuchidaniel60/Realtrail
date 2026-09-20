@@ -65,8 +65,13 @@ export const create = mutation({
     workspaceName: v.string(),
     timezone: v.string(),
     currency: v.string(),
+    propertyName: v.string(),
+    propertyAddress: v.string(),
   },
-  returns: v.object({ workspaceId: v.id("workspaces") }),
+  returns: v.object({
+    workspaceId: v.id("workspaces"),
+    propertyId: v.id("properties"),
+  }),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
 
@@ -105,6 +110,24 @@ export const create = mutation({
       appError("CONFLICT", "User already belongs to a workspace.");
     }
 
+    const propertyName = args.propertyName.trim();
+    if (propertyName.length < 2 || propertyName.length > 100) {
+      appError(
+        "VALIDATION_ERROR",
+        "Property name must be 2..100 characters.",
+        "propertyName",
+      );
+    }
+
+    const propertyAddress = args.propertyAddress.trim();
+    if (propertyAddress.length < 5 || propertyAddress.length > 240) {
+      appError(
+        "VALIDATION_ERROR",
+        "Property address must be 5..240 characters.",
+        "propertyAddress",
+      );
+    }
+
     const now = Date.now();
     const workspaceId = await ctx.db.insert("workspaces", {
       name,
@@ -122,6 +145,17 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
-    return { workspaceId };
+    const propertyId = await ctx.db.insert("properties", {
+      workspaceId,
+      name: propertyName,
+      address: propertyAddress,
+      city: undefined,
+      country: undefined,
+      timezone: args.timezone,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { workspaceId, propertyId };
   },
 });

@@ -23,6 +23,8 @@ const VALID_CREATE = {
   workspaceName: "Test Estate",
   timezone: "Africa/Lagos",
   currency: "NGN",
+  propertyName: "Palm Grove",
+  propertyAddress: "12 Marina Road, Lagos",
 };
 
 describe("workspace.getCurrent", () => {
@@ -70,7 +72,7 @@ describe("workspace.create", () => {
     const t = convexTest(schema, modules);
     const authed = t.withIdentity(USER_A);
     await authed.mutation(api.users.syncUser, {});
-    const { workspaceId } = await authed.mutation(
+    const { workspaceId, propertyId } = await authed.mutation(
       api.workspace.create,
       VALID_CREATE,
     );
@@ -84,7 +86,8 @@ describe("workspace.create", () => {
             .eq("userId", workspace!.createdBy),
         )
         .collect();
-      return { workspace, memberships };
+      const property = await ctx.db.get("properties", propertyId);
+      return { workspace, memberships, property };
     });
     expect(stored.workspace).toMatchObject({
       name: "Test Estate",
@@ -94,6 +97,68 @@ describe("workspace.create", () => {
     });
     expect(stored.memberships).toHaveLength(1);
     expect(stored.memberships[0].role).toEqual("owner");
+    expect(stored.property).toMatchObject({
+      workspaceId,
+      name: "Palm Grove",
+      address: "12 Marina Road, Lagos",
+      timezone: "Africa/Lagos",
+      active: true,
+    });
+  });
+
+  test("property validation failure creates no workspace (atomicity)", async () => {
+    const t = convexTest(schema, modules);
+    const authed = t.withIdentity(USER_A);
+    await authed.mutation(api.users.syncUser, {});
+    await expect(
+      authed.mutation(api.workspace.create, {
+        ...VALID_CREATE,
+        propertyAddress: "123",
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+    const counts = await t.run(async (ctx) => {
+      const workspaces = await ctx.db.query("workspaces").collect();
+      const properties = await ctx.db.query("properties").collect();
+      const memberships = await ctx.db.query("workspaceMembers").collect();
+      return {
+        workspaces: workspaces.length,
+        properties: properties.length,
+        memberships: memberships.length,
+      };
+    });
+    expect(counts).toEqual({ workspaces: 0, properties: 0, memberships: 0 });
+  });
+
+  test("rejects a property name that is too short, too long, or blank", async () => {
+    const t = convexTest(schema, modules);
+    const authed = t.withIdentity(USER_A);
+    await authed.mutation(api.users.syncUser, {});
+    for (const propertyName of ["P", "P".repeat(101), "   "]) {
+      await expect(
+        authed.mutation(api.workspace.create, {
+          ...VALID_CREATE,
+          propertyName,
+        }),
+      ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+    }
+  });
+
+  test("rejects a property address that is too short or too long", async () => {
+    const t = convexTest(schema, modules);
+    const authed = t.withIdentity(USER_A);
+    await authed.mutation(api.users.syncUser, {});
+    await expect(
+      authed.mutation(api.workspace.create, {
+        ...VALID_CREATE,
+        propertyAddress: "1234",
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+    await expect(
+      authed.mutation(api.workspace.create, {
+        ...VALID_CREATE,
+        propertyAddress: "A".repeat(241),
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
   });
 
   test("returns CONFLICT when the user already has a membership", async () => {

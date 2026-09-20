@@ -8,9 +8,12 @@
  * @module
  */
 
+import type * as buildings from "../buildings.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_authorization from "../lib/authorization.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as properties from "../properties.js";
+import type * as units from "../units.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
 
@@ -21,9 +24,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  buildings: typeof buildings;
   "lib/auth": typeof lib_auth;
   "lib/authorization": typeof lib_authorization;
   "lib/errors": typeof lib_errors;
+  properties: typeof properties;
+  units: typeof units;
   users: typeof users;
   workspace: typeof workspace;
 }>;
