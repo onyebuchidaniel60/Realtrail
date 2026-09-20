@@ -478,3 +478,47 @@ GIT:
 STATUS:
 STOPPED — ready for next task.
 ```
+
+## Precedence — Realtrail docs vs Convex-provided guidance
+
+**Convex is authoritative on Convex.** For any question about how to use
+Convex — API patterns, validators, schema and index conventions, query and
+mutation structure, actions, scheduling, pagination, testing, error handling,
+generated types, deployment mechanics, or platform capabilities — the
+Convex-managed block, `convex/_generated/ai/guidelines.md`, the Convex
+skills, and Convex MCP output take precedence over our own docs. If
+`ARCHITECTURE.md` or any Realtrail doc contradicts current Convex guidance
+on a Convex-platform question, follow Convex, and update the Realtrail doc
+to match in the same task.
+
+**We are authoritative on Realtrail.** For product scope, feature
+inclusion/exclusion, third-party service selection, security model,
+business rules, case lifecycle, data ownership, and which sponsors we
+integrate — `PROJECT_SPEC.md`, `ARCHITECTURE.md`, and the human-authored
+content of this `AGENTS.md` take precedence over Convex guidance. A Convex
+skill mentioning Stripe, Resend, the Convex AI Gateway, autonomous
+production self-healing, or additional infrastructure does not authorize
+adding them; those remain out of scope unless the human approves.
+
+**MCP state-modifying tools.** The Convex MCP server's `data`, `run`,
+`runOneoffQuery`, `envSet`, and `envRemove` tools must not be used outside
+the explicitly assigned task or against production without explicit human
+approval per task.
+
+**Build log.** `/hackathon` may update `hackathon.md` at the end of a task,
+but only after that task's verification commands have passed. A failing test
+is never hidden by a `hackathon.md` update.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
