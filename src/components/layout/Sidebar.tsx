@@ -1,0 +1,126 @@
+import { UserButton } from "@clerk/clerk-react";
+import {
+  Activity,
+  Briefcase,
+  Building2,
+  ClipboardList,
+  Inbox,
+  LayoutDashboard,
+  Settings,
+  Truck,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const SECTIONS: NavSection[] = [
+  {
+    title: "Workspace",
+    items: [
+      { to: "/overview", label: "Overview", icon: LayoutDashboard },
+      { to: "/cases", label: "Cases", icon: Briefcase },
+      { to: "/inbox", label: "Inbox", icon: Inbox },
+      { to: "/properties", label: "Properties", icon: Building2 },
+      { to: "/vendors", label: "Vendors", icon: Truck },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { to: "/tasks", label: "Tasks", icon: ClipboardList },
+      { to: "/activity", label: "Activity", icon: Activity },
+    ],
+  },
+  {
+    title: "Management",
+    items: [{ to: "/settings", label: "Settings", icon: Settings }],
+  },
+];
+
+export function SidebarNav({
+  onNavigate,
+  compact = false,
+}: {
+  onNavigate?: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
+      {SECTIONS.map((section) => (
+        <div key={section.title}>
+          <p
+            className={cn(
+              "px-3 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase",
+              compact && "sr-only",
+            )}
+          >
+            {section.title}
+          </p>
+          <ul className="flex flex-col gap-1">
+            {section.items.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  onClick={onNavigate}
+                  title={compact ? item.label : undefined}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? // TODO(Phase 12): replace with lavender primary accent token.
+                          "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                    )
+                  }
+                >
+                  <item.icon className="size-4 shrink-0" />
+                  <span className={cn(compact && "sr-only")}>
+                    {item.label}
+                  </span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+export function Sidebar({ iconsOnly = false }: { iconsOnly?: boolean }) {
+  return (
+    <aside
+      className={cn(
+        "flex shrink-0 flex-col border-r bg-card",
+        iconsOnly ? "hidden w-16 md:flex xl:hidden" : "hidden w-60 xl:flex",
+      )}
+    >
+      <a href="/overview" className="flex h-14 items-center px-4">
+        {iconsOnly ? (
+          <span className="text-lg font-bold" aria-label="Realtrail home">
+            R
+          </span>
+        ) : (
+          <span className="text-lg font-bold tracking-tight">REALTRAIL</span>
+        )}
+      </a>
+      <SidebarNav compact={iconsOnly} />
+      <div className="flex items-center gap-2 border-t p-4">
+        <UserButton />
+        {!iconsOnly && (
+          <span className="text-xs text-muted-foreground">Account</span>
+        )}
+      </div>
+    </aside>
+  );
+}
