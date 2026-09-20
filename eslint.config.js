@@ -40,8 +40,13 @@ export default tseslint.config(
     },
   },
   {
-    // Hooks modules export hook functions alongside context helpers.
-    files: ['src/hooks/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
+    // Hooks modules export hook functions alongside context helpers, and
+    // shared component modules co-locate variant helpers with components.
+    files: [
+      'src/hooks/**/*.{ts,tsx}',
+      'src/lib/**/*.{ts,tsx}',
+      'src/components/common/**/*.{ts,tsx}',
+    ],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

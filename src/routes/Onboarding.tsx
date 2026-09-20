@@ -51,8 +51,9 @@ function defaultTimezone(): string {
   return "UTC";
 }
 
-// TODO(Phase 2): extend this form to collect propertyName, propertyAddress,
-// and the initial building/unit. That data is not collected here.
+// The initial building/unit are collected on the Properties screen.
+// Property details collected here create the first property atomically
+// with the workspace (single backend mutation).
 export function OnboardingPage() {
   const synced = useSyncStatus();
   const current = useQuery(
@@ -64,6 +65,8 @@ export function OnboardingPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [timezone, setTimezone] = useState(defaultTimezone);
   const [currency, setCurrency] = useState("USD");
+  const [propertyName, setPropertyName] = useState("");
+  const [propertyAddress, setPropertyAddress] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -84,22 +87,28 @@ export function OnboardingPage() {
     if (workspaceName.trim().length < 2 || workspaceName.trim().length > 80) {
       localErrors.workspaceName = "Estate name must be 2–80 characters.";
     }
+    if (propertyName.trim().length < 2 || propertyName.trim().length > 100) {
+      localErrors.propertyName = "Property name must be 2–100 characters.";
+    }
+    if (
+      propertyAddress.trim().length < 5 ||
+      propertyAddress.trim().length > 240
+    ) {
+      localErrors.propertyAddress =
+        "Property address must be 5–240 characters.";
+    }
     if (Object.keys(localErrors).length > 0) {
       setFieldErrors(localErrors);
       return;
     }
     setSubmitting(true);
     try {
-      // TODO(Phase 2-B): collect propertyName/propertyAddress from new form
-      // fields. Until then the server rejects the empty values below, so
-      // onboarding submission shows a validation message instead of
-      // creating junk data.
       await createWorkspace({
         workspaceName,
         timezone,
         currency,
-        propertyName: "",
-        propertyAddress: "",
+        propertyName,
+        propertyAddress,
       });
       setDone(true);
     } catch (err) {
@@ -118,7 +127,13 @@ export function OnboardingPage() {
       if (
         code === "VALIDATION_ERROR" &&
         field &&
-        ["workspaceName", "timezone", "currency"].includes(field)
+        [
+          "workspaceName",
+          "timezone",
+          "currency",
+          "propertyName",
+          "propertyAddress",
+        ].includes(field)
       ) {
         setFieldErrors({ [field]: "This value was rejected. Check and retry." });
         return;
@@ -191,6 +206,36 @@ export function OnboardingPage() {
           {fieldErrors.currency && (
             <span className="text-sm text-destructive">
               {fieldErrors.currency}
+            </span>
+          )}
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">First property name</span>
+          <input
+            value={propertyName}
+            onChange={(e) => setPropertyName(e.target.value)}
+            placeholder="e.g. Palm Grove — Block A"
+            className="rounded-md border bg-background px-3 py-2"
+            disabled={submitting}
+          />
+          {fieldErrors.propertyName && (
+            <span className="text-sm text-destructive">
+              {fieldErrors.propertyName}
+            </span>
+          )}
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">First property address</span>
+          <input
+            value={propertyAddress}
+            onChange={(e) => setPropertyAddress(e.target.value)}
+            placeholder="e.g. 12 Marina Road, Lagos"
+            className="rounded-md border bg-background px-3 py-2"
+            disabled={submitting}
+          />
+          {fieldErrors.propertyAddress && (
+            <span className="text-sm text-destructive">
+              {fieldErrors.propertyAddress}
             </span>
           )}
         </label>
