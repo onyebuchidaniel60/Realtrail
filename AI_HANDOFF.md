@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1, 1.1b, 1.1c, 1.2 complete. 1.3 (Clerk wiring) pending.**
+**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 through 1.2 complete. 1.3-A complete (auth structure). 1.3-B pending human Clerk account creation.**
 
 ---
 
@@ -154,6 +154,8 @@ Application implementation (in progress):
 - Read-only conflict audit completed: 0 blocking conflicts. Precedence section added to AGENTS.md establishing: Convex wins on Convex-platform questions; our docs win on Realtrail product/scope/security/integration questions. MCP state-modifying tools constrained to per-task human approval.
 - convex/_generated/ bindings committed (fresh-clone reproducibility).
 - Phase 1.2: Convex cloud dev deployment provisioned at eu-west-dev (EU West, Ireland; https://utmost-stork-432.eu-west-1.convex.cloud). Base schema (users, workspaces, workspaceMembers) deployed. convex-test harness operational. Convex MCP server confirmed active post-restart.
+- Phase 1.3-A: Installed @clerk/clerk-react and @clerk/testing. Created convex/lib/auth.ts (getAuthenticatedIdentity, getCurrentUser, requireUser). Created convex/lib/authorization.ts (requireWorkspaceMembership, requireRole, requireResourceWorkspaceMembership). ClerkProvider wired into src/main.tsx. convex/auth.config.ts updated to reference CLERK_FRONTEND_API_URL (env var not yet set).
+- Reconciled ARCHITECTURE.md §31 index names with Convex convention (by_workspaceId, by_userId, by_workspaceId_and_userId).
 
 ---
 
@@ -220,6 +222,13 @@ convex/lib/errors.ts
 convex/schema.test.ts
 ```
 
+Phase 1.3-A auth structure:
+
+```text
+convex/lib/auth.ts
+convex/lib/authorization.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -274,6 +283,8 @@ Watch especially:
 - Active Convex deployment: eu-west-dev (dev type). Do not push to prod without explicit approval.
 - Convex MCP state-modifying tools (data, run, runOneoffQuery, envSet, envRemove) require per-task human approval per the AGENTS.md precedence section.
 - Convex MCP server spawns multiple instances across OpenCode sessions. This is an observation, not a fault; instances consolidate on full editor restart.
+- CLERK_FRONTEND_API_URL is not yet set on the Convex deployment. auth.config.ts references it; schema pushes may fail until it is set. Phase 1.3-B sets it.
+- VITE_CLERK_PUBLISHABLE_KEY in .env.local is a placeholder until Phase 1.3-B. Auth paths are non-functional until then.
 
 ---
 
@@ -296,4 +307,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 1.3 — Clerk wiring. Scope: install @clerk/clerk-react, configure ClerkProvider, wire Convex–Clerk JWT template via convex/auth.config.ts, create convex/lib/auth.ts and convex/lib/authorization.ts helpers, add CLERK_FRONTEND_API_URL as a Convex env var via `npx convex env set`, install test-time auth tooling, prove authenticated + unauthenticated paths at the Convex function level. Also queued: reconcile ARCHITECTURE.md §31 index names with Convex's convention used in schema.ts.**
+**Phase 1.3-B — Clerk account setup and authenticated-path verification. Human must: (1) create a Clerk application, (2) create a JWT template named 'convex' with the required claims, (3) provide CLERK_FRONTEND_API_URL (the Clerk issuer domain, e.g. https://your-app.clerk.accounts.dev) and VITE_CLERK_PUBLISHABLE_KEY. Agent then runs `npx convex env set CLERK_FRONTEND_API_URL <value>`, replaces the placeholder in .env.local, writes authenticated + unauthenticated tests against convex/lib/auth.ts and convex/lib/authorization.ts, and verifies all pass. Note: ARCHITECTURE.md §31 index reconciliation is already complete (d7974a1); the §6 data-model index labels still show the old names and need the same rename in a follow-up.**
