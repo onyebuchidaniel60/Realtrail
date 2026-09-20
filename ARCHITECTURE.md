@@ -342,8 +342,8 @@ updatedAt: number
 ```
 
 Indexes:
-- `by_workspace`
-- `by_workspace_active`
+- `by_workspaceId`
+- `by_workspaceId_and_active`
 
 ## buildings
 
@@ -358,8 +358,8 @@ updatedAt: number
 ```
 
 Indexes:
-- `by_property`
-- `by_workspace`
+- `by_propertyId`
+- `by_workspaceId`
 
 ## units
 
@@ -375,9 +375,9 @@ updatedAt: number
 ```
 
 Indexes:
-- `by_building`
-- `by_property`
-- `by_workspace`
+- `by_buildingId`
+- `by_propertyId`
+- `by_workspaceId`
 
 Invariant:
 - `building.propertyId == unit.propertyId`
@@ -1742,15 +1742,15 @@ workspaceMembers.by_workspaceId
 workspaceMembers.by_userId
 workspaceMembers.by_workspaceId_and_userId
 
-properties.by_workspace
-properties.by_workspace_active
+properties.by_workspaceId
+properties.by_workspaceId_and_active
 
-buildings.by_property
-buildings.by_workspace
+buildings.by_propertyId
+buildings.by_workspaceId
 
-units.by_building
-units.by_property
-units.by_workspace
+units.by_buildingId
+units.by_propertyId
+units.by_workspaceId
 
 cases.by_workspace
 cases.by_workspace_status
