@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 2 — Workspace and Property Structure (in progress). Sub-task 2-A complete (backend estate hierarchy). 2-B pending (Properties screen + onboarding extension).**
+**Phase 2 — Workspace and Property Structure (complete). Phase 3 (Case domain and state machine) pending.**
 
 ---
 
@@ -161,6 +161,7 @@ Application implementation (in progress):
 - Phase 1.4-A: Added users.syncUser mutation (mirrors Clerk identity to users table, idempotent). Added workspace.getCurrent query (returns workspace + member + needsOnboarding; handles unauthenticated and no-membership cases). Added workspace.create mutation (atomic workspace + owner membership; rejects duplicate membership; validates timezone and currency). All three covered by tests (total test count: 27 — 13 existing + 4 users + 10 workspace).
 - Phase 1.4-B: Frontend shell and routing complete. Routes: /sign-in, /sign-up, /onboarding, /overview, /cases, /inbox, /properties, /vendors, /settings (placeholders for later phases). AppShell with responsive sidebar (persistent ≥1280px, collapsible tablet, drawer mobile). ProtectedRoute guard. Boot-time users.syncUser call. Onboarding form calls workspace.create. Placeholder pages render for later-phase screens. Design tokens deferred to Phase 12.
 - Phase 2-A: Added properties, buildings, units tables with indexes. Extended workspace.create to create the first property atomically (single mutation, atomic). Added properties/buildings/units CRUD mutations and list queries with cross-workspace IDOR enforcement. All covered by tests (total test count: 52).
+- Phase 2-B: Extended onboarding form to collect property name/address (removed compat shim). Built Properties screen with property/building/unit hierarchy navigation and create/edit drawers. Added shared components: EmptyState, LoadingSkeleton, ErrorState, StatusBadge. Frontend tests cover the property/building/unit drill-down.
 
 ---
 
@@ -244,6 +245,16 @@ convex/buildings.ts
 convex/units.ts
 ```
 
+Phase 2-B frontend:
+
+```text
+src/routes/Properties.tsx
+src/components/common/EmptyState.tsx
+src/components/common/LoadingSkeleton.tsx
+src/components/common/ErrorState.tsx
+src/components/common/StatusBadge.tsx
+```
+
 Phase 1.4-B frontend shell:
 
 ```text
@@ -315,6 +326,9 @@ Watch especially:
 - Multi-workspace users are not supported in MVP. workspace.create rejects a second workspace. workspace.getCurrent returns the most recent membership if multiple exist (defensive).
 - workspace.create now requires propertyName and propertyAddress. Any caller with the old signature will fail validation.
 - Building.propertyId is the source of truth for unit.propertyId. Do not accept unit.propertyId from client input.
+- Onboarding form fields grew from 3 to 5. The property must be created atomically with the workspace (backend does this in a single mutation).
+- Properties screen has no delete flow in MVP — deliberate. Do not add one without explicit approval.
+- Existence-hiding convention established in Phase 2-A: cross-workspace access throws NOT_FOUND, not FORBIDDEN. Apply this pattern to case-related queries and mutations in Phase 3.
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
@@ -340,4 +354,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 2-B — Properties screen and onboarding extension. Scope: extend the onboarding form to collect property name/address; build the Properties screen with property/building/unit views; wire to backend mutations/queries; test the create-property, create-building, create-unit flows end-to-end.**
+**Phase 3-A — Case domain and state machine (backend). Scope: cases and caseActivities tables; case number generation per workspace; the full state machine helper (allowed transitions, role rules, closure rules); cases.createManual, cases.updateFields, cases.assign, cases.addNote, cases.transitionStatus, cases.close, cases.reopen mutations; cases.get, cases.list queries; cross-workspace IDOR tests; allowed/denied transition matrix tests.**
