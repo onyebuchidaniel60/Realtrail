@@ -1738,9 +1738,9 @@ Required indexes:
 ```text
 users.by_clerkUserId
 
-workspaceMembers.by_workspace
-workspaceMembers.by_user
-workspaceMembers.by_workspace_user
+workspaceMembers.by_workspaceId
+workspaceMembers.by_userId
+workspaceMembers.by_workspaceId_and_userId
 
 properties.by_workspace
 properties.by_workspace_active
