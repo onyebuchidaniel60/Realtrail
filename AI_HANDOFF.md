@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 through 1.2 complete. 1.3-A complete (auth structure). 1.3-B pending human Clerk account creation.**
+**Phase 1 — Project Foundation (in progress). Sub-tasks 1.1 through 1.3 complete. 1.4 (API surface + shell) pending.**
 
 ---
 
@@ -156,6 +156,8 @@ Application implementation (in progress):
 - Phase 1.2: Convex cloud dev deployment provisioned at eu-west-dev (EU West, Ireland; https://utmost-stork-432.eu-west-1.convex.cloud). Base schema (users, workspaces, workspaceMembers) deployed. convex-test harness operational. Convex MCP server confirmed active post-restart.
 - Phase 1.3-A: Installed @clerk/clerk-react and @clerk/testing. Created convex/lib/auth.ts (getAuthenticatedIdentity, getCurrentUser, requireUser). Created convex/lib/authorization.ts (requireWorkspaceMembership, requireRole, requireResourceWorkspaceMembership). ClerkProvider wired into src/main.tsx. convex/auth.config.ts updated to reference CLERK_FRONTEND_API_URL (env var not yet set).
 - Reconciled ARCHITECTURE.md §31 index names with Convex convention (by_workspaceId, by_userId, by_workspaceId_and_userId).
+- Phase 1.3-B: CLERK_FRONTEND_API_URL set as a Convex env var. VITE_CLERK_PUBLISHABLE_KEY configured in .env.local. auth.config.ts verified against the deployed Cloud dev deployment. Auth and authorization helpers covered by tests (count: 11 — 6 auth, 5 authorization, all passing via convex-test withIdentity).
+- ARCHITECTURE.md §6 index names reconciled with Convex convention (d7974a1 covered §31; this task covered §6).
 
 ---
 
@@ -284,7 +286,8 @@ Watch especially:
 - Convex MCP state-modifying tools (data, run, runOneoffQuery, envSet, envRemove) require per-task human approval per the AGENTS.md precedence section.
 - Convex MCP server spawns multiple instances across OpenCode sessions. This is an observation, not a fault; instances consolidate on full editor restart.
 - CLERK_FRONTEND_API_URL is not yet set on the Convex deployment. auth.config.ts references it; schema pushes may fail until it is set. Phase 1.3-B sets it.
-- VITE_CLERK_PUBLISHABLE_KEY in .env.local is a placeholder until Phase 1.3-B. Auth paths are non-functional until then.
+- VITE_CLERK_PUBLISHABLE_KEY in .env.local is now the real Clerk key (set in Phase 1.3-B); the file remains gitignored and must never be committed.
+- Identity key choice: we use `clerkUserId` (from identity.subject) as the primary identity key, NOT `tokenIdentifier`. Rationale: Realtrail is Clerk-only; no multi-provider scenario exists; schema was deployed with `by_clerkUserId`. If a second auth provider is ever added, revisit.
 
 ---
 
@@ -307,4 +310,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 1.3-B — Clerk account setup and authenticated-path verification. Human must: (1) create a Clerk application, (2) create a JWT template named 'convex' with the required claims, (3) provide CLERK_FRONTEND_API_URL (the Clerk issuer domain, e.g. https://your-app.clerk.accounts.dev) and VITE_CLERK_PUBLISHABLE_KEY. Agent then runs `npx convex env set CLERK_FRONTEND_API_URL <value>`, replaces the placeholder in .env.local, writes authenticated + unauthenticated tests against convex/lib/auth.ts and convex/lib/authorization.ts, and verifies all pass. Note: ARCHITECTURE.md §31 index reconciliation is already complete (d7974a1); the §6 data-model index labels still show the old names and need the same rename in a follow-up.**
+**Phase 1.4 — API surface and app shell. Scope: workspace.getCurrent and workspace.create queries/mutations, /sign-in and /sign-up routes, /onboarding placeholder, protected AppShell with responsive sidebar skeleton, and route guards that redirect unauthenticated users to /sign-in.**
