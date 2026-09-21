@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T17:40:53Z
+- **Last updated:** 2026-09-21T18:05:57Z
 
 ## Log
 
@@ -90,3 +90,6 @@ Phase 5-A: inbound email pipeline. Added `communications` and `inboundEvents` ta
 
 ### 2026-09-21 - 662c371
 Phase 5-B: live AgentMail wiring. Set the API key and webhook secret as Convex env vars, verified the API surface against the official docs, and corrected three provisional assumptions from 5-A (base URL, `/v0` prefix, snake_case fields and webhook envelope). Implemented inbox provisioning (`createInbox` with `client_id` idempotency plus internal and public provisioning actions) with 5 new tests (suite total 250). Provisioned the workspace inbox and validated the full pipeline with a real inbound email: webhook verified, event processed, communication stored (3e2aa90). Handoff updated (662c371) (`convex/workspaces/provisioning.ts`, `convex/lib/providers/agentmail.ts`).
+
+### 2026-09-21 - 0ceacd4
+Phase 5-C-1: inbox backend for the upcoming UI. Added read state to communications, a thread query returning reading-order messages plus the linked case, manual link-to-case with a timeline activity, and single plus thread-level mark-read. The inbox list now returns read state and a workspace-scoped unread count (cc800c6). Covered with 18 new tests (suite total 268). Handoff updated (0ceacd4) (`convex/email/mutations.ts`, `convex/email/queries.ts`).
