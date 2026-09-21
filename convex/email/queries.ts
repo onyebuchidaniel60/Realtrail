@@ -95,6 +95,9 @@ export const list = query({
         caseTitle: v.optional(v.string()),
         createdAt: v.number(),
         readAt: v.optional(v.number()),
+        // Provider thread id: the conversation key the UI navigates by
+        // (/inbox?threadId=...). Required so rows are selectable.
+        threadId: v.string(),
       }),
     ),
     nextCursor: v.union(v.string(), v.null()),
@@ -202,6 +205,7 @@ export const list = query({
         caseTitle: parent?.title,
         createdAt: row.createdAt,
         readAt: row.readAt,
+        threadId: row.agentMailThreadId,
       };
     });
     // Workspace-scoped unread count, independent of the pagination window

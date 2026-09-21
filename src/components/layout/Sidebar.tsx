@@ -9,7 +9,10 @@ import {
   Settings,
   Truck,
 } from "lucide-react";
+import { useQuery } from "convex/react";
 import { NavLink } from "react-router-dom";
+import { api } from "../../../convex/_generated/api";
+import { useSyncStatus } from "@/hooks/useSyncUser";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -54,6 +57,15 @@ export function SidebarNav({
   onNavigate?: () => void;
   compact?: boolean;
 }) {
+  // Workspace-wide unread count for the Inbox badge. pageSize 1 keeps the
+  // payload tiny; unreadCount is computed server-side regardless. Gated on
+  // sync so the query never fires pre-auth.
+  const { synced } = useSyncStatus();
+  const inboxState = useQuery(
+    api.email.queries.list,
+    synced ? { filter: "all", pageSize: 1 } : "skip",
+  );
+  const unread = inboxState?.unreadCount ?? 0;
   return (
     <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
       {SECTIONS.map((section) => (
@@ -87,6 +99,14 @@ export function SidebarNav({
                   <span className={cn(compact && "sr-only")}>
                     {item.label}
                   </span>
+                  {item.to === "/inbox" && unread > 0 && (
+                    <span
+                      aria-label={`${unread} unread messages`}
+                      className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-semibold text-primary-foreground"
+                    >
+                      {unread}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}
