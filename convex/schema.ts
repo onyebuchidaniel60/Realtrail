@@ -232,6 +232,14 @@ export default defineSchema({
     lastError: v.optional(v.string()),
     // Read state for the inbox UI. Undefined means unread.
     readAt: v.optional(v.number()),
+    // AI triage markers (Phase 6). A communication is triaged at most
+    // once: triageCaseId set means done; triageAttempts/triageFailedAt
+    // track the 3-attempt retry budget without blocking inbox use.
+    triagedAt: v.optional(v.number()),
+    triageCaseId: v.optional(v.id("cases")),
+    triageAttempts: v.optional(v.number()),
+    triageFailedAt: v.optional(v.number()),
+    triageError: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
