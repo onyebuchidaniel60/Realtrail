@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T21:01:33Z
+- **Last updated:** 2026-09-21T22:50:40Z
 
 ## Log
 
@@ -99,3 +99,6 @@ Phase 5-C-2: inbox UI. Conversation list with unread dots, linked-case badges, a
 
 ### 2026-09-21 - 76bc89c
 Phase 6-A: AI triage backend. OpenAI Responses API wrapper with strict JSON-schema output and local shape validation; deterministic triage prompt that treats email as untrusted data; triage action creating NEW cases with referential ID checks and its own retry budget, scheduled from the inbound pipeline; manager accept-triage mutation with role and hierarchy rules. No live key yet — all model responses mocked. Covered with 33 new tests (suite total 324). Handoff updated (76bc89c) (`convex/lib/providers/openai.ts`, `convex/email/triage.ts`, `convex/cases/triage.ts`).
+
+### 2026-09-21 - cf806df
+Correction: the triage client is now provider-neutral via a base-URL setting, with OpenRouter supported (routing headers plus strict-output enforcement), and the test runner is pinned to a single worker for deterministic full-suite runs (327 tests green). Handoff updated (cf806df) (`convex/lib/providers/openai.ts`, `vite.config.ts`).
