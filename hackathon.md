@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T18:05:57Z
+- **Last updated:** 2026-09-21T19:13:12Z
 
 ## Log
 
@@ -93,3 +93,6 @@ Phase 5-B: live AgentMail wiring. Set the API key and webhook secret as Convex e
 
 ### 2026-09-21 - 0ceacd4
 Phase 5-C-1: inbox backend for the upcoming UI. Added read state to communications, a thread query returning reading-order messages plus the linked case, manual link-to-case with a timeline activity, and single plus thread-level mark-read. The inbox list now returns read state and a workspace-scoped unread count (cc800c6). Covered with 18 new tests (suite total 268). Handoff updated (0ceacd4) (`convex/email/mutations.ts`, `convex/email/queries.ts`).
+
+### 2026-09-21 - dd8fd58
+Phase 5-C-2: inbox UI. Conversation list with unread dots, linked-case badges, and filter tabs; conversation view with reading-order plain-text messages, auto-mark-read, and a link-to-case dialog with case search. Mobile list-to-conversation navigation plus a sidebar unread badge. Also fixed link-to-case to refresh the case's activity ordering. Covered with 22 new frontend tests plus 1 backend test (suite total 291). Handoff updated (dd8fd58) (`src/routes/Inbox.tsx`, `src/components/inbox/`).
