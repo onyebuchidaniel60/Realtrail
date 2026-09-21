@@ -13,6 +13,7 @@ import type * as cases_mutations from "../cases/mutations.js";
 import type * as cases_number from "../cases/number.js";
 import type * as cases_queries from "../cases/queries.js";
 import type * as cases_stateMachine from "../cases/stateMachine.js";
+import type * as dashboard from "../dashboard.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_authorization from "../lib/authorization.js";
 import type * as lib_errors from "../lib/errors.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   "cases/number": typeof cases_number;
   "cases/queries": typeof cases_queries;
   "cases/stateMachine": typeof cases_stateMachine;
+  dashboard: typeof dashboard;
   "lib/auth": typeof lib_auth;
   "lib/authorization": typeof lib_authorization;
   "lib/errors": typeof lib_errors;
