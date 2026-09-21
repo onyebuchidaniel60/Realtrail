@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 4 — Dashboard and Realtime Operations (complete). Phase 5 (AgentMail inbox and webhooks) pending.**
+**Phase 5 — AgentMail Inbox and Webhooks (in progress). Sub-task 5-A complete (webhook receiver + inbound pipeline). 5-B pending human account setup. 5-C pending inbox UI.**
 
 ---
 
@@ -168,6 +168,7 @@ Application implementation (in progress):
 - Phase 4-A: Added dashboard.get query returning metrics (open, urgent, waitingOnVendor, awaitingConfirmation, resolvedThisWeek), attention list (capped 10, priority then age sorted), operations buckets per status, upNext (capped 5), recentActivity (capped 10, denormalized with caseNumber + caseTitle). All workspace-scoped, bounded via indexes. 4h and 24h thresholds are hardcoded pending Phase 10 env vars.
 - Phase 4-B: Overview dashboard UI — greeting header, attention card, four metric cards with variants, operations flow visualization, up-next list, recent activity list. Consumes dashboard.get. Realtime updates verified via test. Mobile-responsive layout (2-col metrics, horizontal-scroll operations flow, stacked sections). Empty state for zero-case workspaces.
 - Session bootstrap correction: hackathon.md was stale from Phase 1.2 onward due to an incorrect DO-NOT ban on the file in phase task prompts. Backfilled via the hackathon skill from git history through Phase 4-B. Rule going forward: hackathon.md is updated by the hackathon skill at the end of every phase task, per AGENTS.md §15. It is never included in a DO-NOT list.
+- Phase 5-A: Added communications and inboundEvents tables with indexes. Implemented svix signature verification (pure, Web Crypto). Added POST /webhooks/agentmail with dedupe, scheduling, and idempotent retry. Canonical message fetch isolated behind convex/lib/providers/agentmail.ts (Node runtime, mockable via __setFetchMessageForTests). Added inbox.list query with pagination and denormalized case references. No live AgentMail account yet — all tests use mocks. Test count: 245 (was 213).
 
 ---
 
@@ -317,6 +318,16 @@ src/components/layout/ProtectedRoute.tsx
 src/hooks/useSyncUser.ts
 ```
 
+Phase 5-A inbound pipeline:
+
+```text
+convex/http.ts
+convex/lib/providers/svix.ts
+convex/lib/providers/agentmail.ts
+convex/email/processInbound.ts
+convex/email/queries.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -403,6 +414,12 @@ Watch especially:
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
 - hackathon.md must be updated at the end of every phase, after the phase's verification commands pass, per AGENTS.md §15. If a phase report does not include a HACKATHON.MD UPDATE section with a commit hash, the update was skipped — treat this as a process failure and correct before proceeding.
+- AGENTMAIL_WEBHOOK_SECRET is not set. The webhook endpoint rejects every request until Phase 5-B sets it. Do not configure the webhook in AgentMail until then.
+- HTTP actions run in a V8 isolate (no Node crypto). Svix verification uses crypto.subtle. Node runtime is only for convex/lib/providers/agentmail.ts ("use node").
+- The by_agentMailInboxId index on workspaces is required for inbound routing. Do not remove it.
+- Retry policy: 3 attempts at 60s intervals, then failed permanently. Failed events stay in inboundEvents.
+- payloadHash is stored but not yet used — reserved for future reconciliation. providerEventId is the current dedupe key.
+- Fresh non-interactive shells default to Node 24. Run `fnm use 22` at the start of every task before running npx/npm.
 
 ---
 
@@ -425,4 +442,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 5-A — AgentMail inbox provisioning and webhook receiver. Scope: communications and inboundEvents tables; POST /webhooks/agentmail HTTP action with signature verification; internal mutation to record inbound events with dedupe; scheduled processing to fetch canonical message and store communication; inbox.list query; inbox UI (list + conversation pane). Vendor/resident classification, AI triage on inbound, and reply routing are Phase 5-B.**
+**Phase 5-B — live AgentMail setup (human-in-the-loop). Human creates an AgentMail account, provides AGENTMAIL_API_KEY and AGENTMAIL_WEBHOOK_SECRET (from a webhook configured to POST https://utmost-stork-432.eu-west-1.convex.site/webhooks/agentmail). Agent then sets both as Convex env vars via npx convex env set, implements AgentMail inbox provisioning (one inbox per workspace, added to workspaces.agentMailInboxId), runs a smoke test with a real inbound email, and verifies a communications row is created.**
