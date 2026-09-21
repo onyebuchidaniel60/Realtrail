@@ -3,6 +3,7 @@ import {
   __setTriageMessageForTests,
   triageMessage,
   type TriageMessageArgs,
+  type TriageSuggestion,
 } from "./openai";
 
 function triageInput() {
@@ -18,7 +19,7 @@ function triageInput() {
   };
 }
 
-function validSuggestion() {
+function validSuggestion(): TriageSuggestion {
   return {
     title: "Low water pressure in Block C",
     summary: "Residents report reduced water pressure.",
@@ -38,10 +39,10 @@ function validSuggestion() {
 function mockFetchJson(body: unknown, init: { ok?: boolean; status?: number } = {}) {
   const ok = init.ok ?? true;
   const status = init.status ?? (ok ? 200 : 500);
-  return vi.fn(async () => ({
+  return vi.fn(async (_url: string, _init: RequestInit) => ({
     ok,
     status,
-    json: async () => body,
+    json: async (): Promise<unknown> => body,
   }));
 }
 
@@ -68,6 +69,7 @@ function args(): TriageMessageArgs {
 afterEach(() => {
   vi.unstubAllGlobals();
   __setTriageMessageForTests(undefined);
+  delete process.env.OPENAI_BASE_URL;
 });
 
 describe("triageMessage", () => {
@@ -80,7 +82,7 @@ describe("triageMessage", () => {
     expect(result).toEqual(validSuggestion());
     // Request shape: Responses API with structured JSON output.
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.openai.com/v1/responses");
     const body = JSON.parse(init.body as string) as Record<string, unknown>;
     expect(body.model).toBe("test-model");
@@ -153,5 +155,62 @@ describe("triageMessage", () => {
     const result = await triageMessage(args());
     expect(result).toEqual(validSuggestion());
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("OpenAI-direct request has no OpenRouter headers or fields", async () => {
+    delete process.env.OPENAI_BASE_URL;
+    const fetchMock = mockFetchJson(
+      responsesEnvelope(JSON.stringify(validSuggestion())),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await triageMessage(args());
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/responses");
+    const headers = init.headers as Record<string, string>;
+    expect(headers).not.toHaveProperty("HTTP-Referer");
+    expect(headers).not.toHaveProperty("X-OpenRouter-Title");
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("require_parameters");
+    expect(body.model).toBe("test-model");
+  });
+
+  test("OpenRouter request adds routing headers and require_parameters", async () => {
+    process.env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
+    try {
+      const fetchMock = mockFetchJson(
+        responsesEnvelope(JSON.stringify(validSuggestion())),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const result = await triageMessage({
+        ...args(),
+        model: "openai/gpt-4o-mini",
+      });
+      expect(result).toEqual(validSuggestion());
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://openrouter.ai/api/v1/responses");
+      const headers = init.headers as Record<string, string>;
+      expect(headers["HTTP-Referer"]).toBe("https://realtrail.local");
+      expect(headers["X-OpenRouter-Title"]).toBe("Realtrail");
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.require_parameters).toBe(true);
+      expect(body.model).toBe("openai/gpt-4o-mini");
+      // Structured output shape is preserved on OpenRouter.
+      const format = (body.text as Record<string, unknown>).format as Record<
+        string,
+        unknown
+      >;
+      expect(format.type).toBe("json_schema");
+      expect(format.strict).toBe(true);
+    } finally {
+      delete process.env.OPENAI_BASE_URL;
+    }
+  });
+
+  test("empty API key passes through to a server-side 401 (unchanged)", async () => {
+    const fetchMock = mockFetchJson({ error: "bad key" }, { ok: false, status: 401 });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      triageMessage({ ...args(), apiKey: "" }),
+    ).rejects.toMatchObject({ data: { code: "PROVIDER_ERROR" } });
   });
 });

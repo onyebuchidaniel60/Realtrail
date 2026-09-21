@@ -1,9 +1,24 @@
 "use node";
 
-// OpenAI provider adapter (ARCHITECTURE.md §15, §32).
+// OpenAI-compatible provider adapter (ARCHITECTURE.md §15, §32).
+//
+// Provider modes (selected by OPENAI_BASE_URL at call time):
+//   - OpenAI direct (default): base https://api.openai.com/v1. Plain
+//     Responses API request, no extra headers or fields.
+//   - OpenRouter: any base URL whose hostname contains "openrouter.ai"
+//     (e.g. https://openrouter.ai/api/v1). Adds the HTTP-Referer and
+//     X-OpenRouter-Title headers plus top-level require_parameters: true,
+//     which forces routing to endpoints with strict structured-output
+//     support. Model IDs are provider-scoped (e.g. "openai/gpt-4o-mini").
+//
+// Environment variables:
+//   OPENAI_BASE_URL — provider endpoint (default: OpenAI direct)
+//   OPENAI_API_KEY  — bearer token (works with either provider)
+//   PUBLIC_APP_URL  — used for HTTP-Referer on OpenRouter (falls back to
+//                     https://realtrail.local when unset)
 //
 // Exact request shape (verified against the Responses API reference):
-//   POST https://api.openai.com/v1/responses
+//   POST {baseUrl}/responses
 //   {
 //     "model": "<model id>",
 //     "instructions": "<system prompt>",   // top-level developer instructions
@@ -48,8 +63,21 @@ export type TriageMessageArgs = {
   input: TriagePromptInput;
 };
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const TRIAGE_TIMEOUT_MS = 30_000;
+
+function resolveBaseUrl(): string {
+  const configured = process.env.OPENAI_BASE_URL?.trim();
+  return configured !== undefined && configured !== "" ? configured : DEFAULT_BASE_URL;
+}
+
+function isOpenRouter(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname.includes("openrouter.ai");
+  } catch {
+    return false;
+  }
+}
 
 const TRIAGE_JSON_SCHEMA = {
   type: "object",
@@ -195,16 +223,24 @@ export async function triageMessage(
   if (testOverride !== undefined) {
     return testOverride(args);
   }
+  const baseUrl = resolveBaseUrl();
+  const viaOpenRouter = isOpenRouter(baseUrl);
+  const headers: Record<string, string> = {
+    // The API key travels in the Authorization header only. It is
+    // never logged and never appears in error messages below.
+    Authorization: `Bearer ${args.apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (viaOpenRouter) {
+    headers["HTTP-Referer"] =
+      process.env.PUBLIC_APP_URL || "https://realtrail.local";
+    headers["X-OpenRouter-Title"] = "Realtrail";
+  }
   let response: Response;
   try {
-    response = await fetch(OPENAI_RESPONSES_URL, {
+    response = await fetch(`${baseUrl}/responses`, {
       method: "POST",
-      headers: {
-        // The API key travels in the Authorization header only. It is
-        // never logged and never appears in error messages below.
-        Authorization: `Bearer ${args.apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         model: args.model,
         instructions: buildTriageSystemPrompt(),
@@ -218,6 +254,9 @@ export async function triageMessage(
           },
         },
         store: false,
+        // OpenRouter only: restrict routing to endpoints that honor
+        // strict structured outputs.
+        ...(viaOpenRouter ? { require_parameters: true } : {}),
       }),
       signal: AbortSignal.timeout(TRIAGE_TIMEOUT_MS),
     });

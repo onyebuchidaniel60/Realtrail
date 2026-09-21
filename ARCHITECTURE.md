@@ -139,6 +139,23 @@ Responsibilities:
 
 The official OpenAI quickstart currently demonstrates the Responses API and server-side SDK usage. Structured output should use JSON Schema / Structured Outputs rather than free-form parsing. citeturn798728search0turn798728search5
 
+## Provider configuration
+
+Realtrail uses the OpenAI-compatible Responses API but supports any
+compatible provider via OPENAI_BASE_URL. The default is OpenAI direct
+(https://api.openai.com/v1). OpenRouter (https://openrouter.ai/api/v1)
+is supported as an alternative for billing flexibility; when in use,
+the wrapper adds HTTP-Referer and X-OpenRouter-Title headers and sets
+require_parameters: true to enforce structured output support on the
+routed endpoint.
+
+Environment variables:
+- `OPENAI_BASE_URL` — provider endpoint (default: OpenAI direct)
+- `OPENAI_API_KEY` — bearer token (works with either provider)
+- `OPENAI_TRIAGE_MODEL` — model identifier (e.g. "gpt-4o-mini" for direct,
+  "openai/gpt-4o-mini" for OpenRouter)
+- `OPENAI_DRAFT_MODEL` — same
+
 ## Web research
 
 **Firecrawl**
