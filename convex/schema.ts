@@ -15,10 +15,14 @@ export default defineSchema({
     timezone: v.string(),
     currency: v.string(),
     status: v.union(v.literal("active"), v.literal("suspended")),
+    // AgentMail operational inbox for this workspace. Both are placeholders
+    // until Phase 5-B provisions the live inbox.
+    agentMailInboxId: v.optional(v.string()),
+    agentMailInboxAddress: v.optional(v.string()),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }),
+  }).index("by_agentMailInboxId", ["agentMailInboxId"]),
 
   workspaceMembers: defineTable({
     workspaceId: v.id("workspaces"),
@@ -193,4 +197,69 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     nextNumber: v.number(),
   }).index("by_workspaceId", ["workspaceId"]),
+
+  communications: defineTable({
+    workspaceId: v.id("workspaces"),
+    caseId: v.optional(v.id("cases")),
+    direction: v.union(v.literal("inbound"), v.literal("outbound")),
+    participantType: v.union(
+      v.literal("resident"),
+      v.literal("vendor"),
+      v.literal("other"),
+    ),
+    agentMailInboxId: v.string(),
+    agentMailThreadId: v.string(),
+    agentMailMessageId: v.optional(v.string()),
+    status: v.union(
+      v.literal("received"),
+      v.literal("draft"),
+      v.literal("pending_send"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+      v.literal("send_uncertain"),
+    ),
+    fromEmail: v.string(),
+    toEmails: v.array(v.string()),
+    subject: v.string(),
+    // MVP stores plain text only. Never render raw email HTML.
+    textBody: v.string(),
+    aiDraftSource: v.boolean(),
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    providerDraftId: v.optional(v.string()),
+    providerMessageId: v.optional(v.string()),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_caseId", ["caseId"])
+    .index("by_agentMailThreadId", ["agentMailThreadId"])
+    .index("by_agentMailMessageId", ["agentMailMessageId"])
+    .index("by_workspaceId_and_createdAt", ["workspaceId", "createdAt"]),
+
+  inboundEvents: defineTable({
+    provider: v.literal("agentmail"),
+    providerEventId: v.string(),
+    providerMessageId: v.optional(v.string()),
+    providerInboxId: v.string(),
+    eventType: v.string(),
+    // sha256 of the raw webhook body. Stored for future reconciliation;
+    // providerEventId is the current dedupe key.
+    payloadHash: v.string(),
+    processingStatus: v.union(
+      v.literal("received"),
+      v.literal("processing"),
+      v.literal("processed"),
+      v.literal("failed"),
+    ),
+    attempts: v.number(),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_providerEventId", ["providerEventId"])
+    .index("by_providerMessageId", ["providerMessageId"])
+    .index("by_processingStatus", ["processingStatus"]),
 });
