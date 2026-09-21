@@ -167,6 +167,7 @@ Application implementation (in progress):
 - Phase 3-B-2: Case Detail action panel with contextual next action. Six dialogs: EditCaseDialog, AssignDialog, StatusChangeDialog, NoteDialog, CloseCaseDialog, ReopenDialog — each wired to its mutation and respecting allowedActions. ConfirmDialog for destructive actions. Toast feedback via sonner. All actions respect role-based restrictions from the backend.
 - Phase 4-A: Added dashboard.get query returning metrics (open, urgent, waitingOnVendor, awaitingConfirmation, resolvedThisWeek), attention list (capped 10, priority then age sorted), operations buckets per status, upNext (capped 5), recentActivity (capped 10, denormalized with caseNumber + caseTitle). All workspace-scoped, bounded via indexes. 4h and 24h thresholds are hardcoded pending Phase 10 env vars.
 - Phase 4-B: Overview dashboard UI — greeting header, attention card, four metric cards with variants, operations flow visualization, up-next list, recent activity list. Consumes dashboard.get. Realtime updates verified via test. Mobile-responsive layout (2-col metrics, horizontal-scroll operations flow, stacked sections). Empty state for zero-case workspaces.
+- Session bootstrap correction: hackathon.md was stale from Phase 1.2 onward due to an incorrect DO-NOT ban on the file in phase task prompts. Backfilled via the hackathon skill from git history through Phase 4-B. Rule going forward: hackathon.md is updated by the hackathon skill at the end of every phase task, per AGENTS.md §15. It is never included in a DO-NOT list.
 
 ---
 
@@ -401,6 +402,7 @@ Watch especially:
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
+- hackathon.md must be updated at the end of every phase, after the phase's verification commands pass, per AGENTS.md §15. If a phase report does not include a HACKATHON.MD UPDATE section with a commit hash, the update was skipped — treat this as a process failure and correct before proceeding.
 
 ---
 
