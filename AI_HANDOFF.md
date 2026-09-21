@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 5 — AgentMail Inbox and Webhooks (in progress). Sub-tasks 5-A, 5-B, 5-C-1 complete. 5-C-2 pending (Inbox UI).**
+**Phase 5 — AgentMail Inbox and Webhooks (complete). Phase 6 (AI triage) pending.**
 
 ---
 
@@ -171,6 +171,7 @@ Application implementation (in progress):
 - Phase 5-A: Added communications and inboundEvents tables with indexes. Implemented svix signature verification (pure, Web Crypto). Added POST /webhooks/agentmail with dedupe, scheduling, and idempotent retry. Canonical message fetch isolated behind convex/lib/providers/agentmail.ts (Node runtime, mockable via __setFetchMessageForTests). Added inbox.list query with pagination and denormalized case references. No live AgentMail account yet — all tests use mocks. Test count: 245 (was 213).
 - Phase 5-B: Live AgentMail account wired. AGENTMAIL_API_KEY and AGENTMAIL_WEBHOOK_SECRET set as Convex env vars. Inbox provisioning implemented (createInbox wrapper + internal provisionAgentMailInbox action + public provisionMyWorkspaceInbox action). Workspace inbox provisioned at onyebuchi-6730@agentmail.to. End-to-end smoke test passed: real inbound email → webhook → inboundEvents row processed → communications row created. Test count: 250 (was 245).
 - Phase 5-C-1: Added readAt to communications. Added communications.getThread, communications.linkToCase, communications.markRead, communications.markThreadRead. inbox.list now returns readAt and workspace-scoped unreadCount. Test count: 268.
+- Phase 5-C-2: Inbox UI complete — conversation list with unread indicators and linked-case badges, filter tabs (All/Residents/Vendors), conversation view with plain-text messages, auto-mark-read on open, link-to-case dialog with case search. Mobile: list → conversation → back. Sidebar unread badge added. Fixed linkToCase to bump case.lastActivityAt. Test count: 291.
 
 ---
 
@@ -342,6 +343,15 @@ Phase 5-C-1 inbox backend:
 convex/email/mutations.ts
 ```
 
+Phase 5-C-2 inbox UI:
+
+```text
+src/routes/Inbox.tsx
+src/components/inbox/ConversationList.tsx
+src/components/inbox/ConversationView.tsx
+src/components/inbox/LinkToCaseDialog.tsx
+```
+
 Recommended application structure:
 
 ```text
@@ -442,6 +452,10 @@ Watch especially:
 - unreadCount in inbox.list is computed in-memory over a bounded page. For workspaces with >1000 communications, this may undercount. Add a counter table only with explicit approval.
 - linkToCase only supports inbound communications. Outbound linking is out of scope.
 - A test workspace (jd730jjct6kj4dyq27rwccfc0x8ety58) was created during Phase 5-B smoke testing. It contains test data and is not the human's primary workspace. Clean up in Phase 11 or via a manual admin task.
+- Workspace check (5-C-2): the dev deployment holds exactly one workspace (the smoke one) and one membership (the smoke-test user). The human has no membership anywhere, so workspace.getCurrent cannot return the smoke workspace for them — onboarding will create their own. No conflict, no action needed.
+- Inbound emails render as plain text only. Never render HTML from email bodies. This is a security requirement (§14 XSS in ARCHITECTURE.md).
+- Auto-mark-read fires once per thread open after a short delay. If a user rapidly switches threads, the timer may fire for the wrong thread — the ref guard prevents duplicates on the same thread. This is acceptable MVP behavior.
+- The sidebar unread badge uses the workspace-wide unreadCount. Filter-specific counts are not pre-fetched; only the currently-selected filter has a badge in the tab bar.
 
 ---
 
@@ -464,4 +478,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 5-C-2 — Inbox UI. Scope: replace Inbox.tsx placeholder with list + conversation pane. Filter tabs (All / Residents / Vendors). Read indicators. Link-to-case action for unlinked inbound communications. Mobile: list → conversation → back. Wire to inbox.list, communications.getThread, communications.linkToCase, communications.markRead/markThreadRead.**
+**Phase 6-A — AI triage backend. Scope: OpenAI client wrapper, structured triage output schema, ai.triageInbound action, cases created from inbound communications, aiTriageStatus lifecycle, integration with the inbound pipeline. AI must not auto-close or auto-transition; output is stored as suggestions for manager review. Test with mocked OpenAI responses.**
