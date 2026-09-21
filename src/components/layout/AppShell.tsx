@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar, SidebarNav } from "./Sidebar";
 import { SyncProvider } from "@/hooks/useSyncUser";
+import { Toaster } from "@/components/ui/sonner";
 
 function MobileDrawer({
   open,
@@ -69,6 +70,7 @@ export function AppShell() {
           </main>
         </div>
         <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <Toaster />
       </div>
     </SyncProvider>
   );

@@ -1,22 +1,32 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   ArrowRightLeft,
   FileText,
   Lock,
   MessageSquare,
-  MoreHorizontal,
   Pencil,
   RotateCcw,
   UserCheck,
 } from "lucide-react";
+import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSkeleton as PageSkeleton } from "@/components/layout/ProtectedRoute";
+import { toast } from "@/components/common/toast";
+import { CaseActionPanel } from "./CaseActionPanel";
+import { getPrimaryAction, type PanelAction } from "./caseActions";
 import { PriorityBadge } from "./PriorityBadge";
 import { caseStatusVariant, formatRelativeTime, formatStatus } from "./caseDisplay";
+import { AssignDialog } from "./dialogs/AssignDialog";
+import { CloseCaseDialog } from "./dialogs/CloseCaseDialog";
+import { EditCaseDialog } from "./dialogs/EditCaseDialog";
+import { NoteDialog } from "./dialogs/NoteDialog";
+import { ReopenDialog } from "./dialogs/ReopenDialog";
+import { StatusChangeDialog } from "./dialogs/StatusChangeDialog";
+import { errorMessage } from "./dialogs/dialogUtils";
 import { useSyncStatus } from "@/hooks/useSyncUser";
 
 const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -82,6 +92,10 @@ export function CaseDetail({
 }) {
   const { userId } = useSyncStatus();
   const data = useQuery(api.cases.queries.get, { caseId });
+  const transitionStatus = useMutation(api.cases.mutations.transitionStatus);
+  const [dialog, setDialog] = useState<
+    null | "note" | "edit" | "assign" | "status" | "close" | "reopen"
+  >(null);
 
   const propertyId = data?.case.propertyId;
   const buildingId = data?.case.buildingId;
@@ -102,7 +116,7 @@ export function CaseDetail({
     return <CaseDetailNotFound onBack={onClose} />;
   }
 
-  const { case: record, activities } = data;
+  const { case: record, activities, allowedActions } = data;
   const property = properties?.find((p) => p._id === record.propertyId);
   const building = buildings?.find((b) => b._id === record.buildingId);
   const unit = units?.find((u) => u._id === record.unitId);
@@ -112,41 +126,47 @@ export function CaseDetail({
         .join(" / ")
     : "Location unknown";
 
+  const primary = getPrimaryAction(record, allowedActions);
+
+  async function handleAction(action: PanelAction) {
+    if (action.kind === "transition") {
+      try {
+        await transitionStatus({
+          caseId: record._id,
+          nextStatus: action.to,
+        });
+        toast.success(`Case moved to ${formatStatus(action.to)}`);
+      } catch (err) {
+        toast.error(errorMessage(err));
+      }
+      return;
+    }
+    setDialog(action.kind);
+  }
+
+  function closeDialog() {
+    setDialog(null);
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent xl:hidden"
-          >
-            <ArrowLeft className="size-4" /> Back
-          </button>
-          <button
-            type="button"
-            disabled
-            aria-label="More actions (coming in Phase 3-B-2)"
-            title="More actions (coming in Phase 3-B-2)"
-            className="rounded-md p-2 opacity-50 xl:hidden"
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
-        </div>
+    <>
+      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          <header className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent xl:hidden"
+              >
+                <ArrowLeft className="size-4" /> Back
+              </button>
+            </div>
         <p className="font-mono text-xs text-muted-foreground">
           #{record.caseNumber}
         </p>
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-xl font-semibold">{record.title}</h1>
-          <button
-            type="button"
-            disabled
-            aria-label="More actions (coming in Phase 3-B-2)"
-            title="More actions (coming in Phase 3-B-2)"
-            className="hidden rounded-md p-2 opacity-50 xl:block"
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
         </div>
         <p className="text-sm text-muted-foreground">{locationLabel}</p>
         <p className="flex flex-wrap items-center gap-2">
@@ -196,14 +216,62 @@ export function CaseDetail({
       </section>
 
       {/*
-        Later phases insert sections here — do not add them in 3-B-1:
+        Later phases insert sections here — do not add them in 3-B-2:
         - Phase 5: Communications section (email threads, reply composer)
         - Phase 6: AI summary card (triage output, provenance, review action)
         - Phase 7: Vendor section (selected vendor, discovery entry point)
         - Phase 9: Resolution section (vendor completion, confirmation state)
-        - Phase 3-B-2: Action panel (next action, edit/assign/status/note/close/reopen)
       */}
-    </div>
+        </div>
+        <div className="xl:sticky xl:top-6">
+          <CaseActionPanel
+            record={record}
+            allowed={allowedActions}
+            onAction={handleAction}
+          />
+        </div>
+      </div>
+      {primary.action && (
+        <div className="sticky bottom-0 -mx-1 mt-2 border-t bg-background/95 p-3 backdrop-blur xl:hidden">
+          <button
+            type="button"
+            disabled={primary.disabled}
+            onClick={() => primary.action && handleAction(primary.action)}
+            className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {primary.label}
+          </button>
+        </div>
+      )}
+      {dialog === "note" && (
+        <NoteDialog open onClose={closeDialog} record={record} />
+      )}
+      {dialog === "edit" && (
+        <EditCaseDialog open onClose={closeDialog} record={record} />
+      )}
+      {dialog === "assign" && (
+        <AssignDialog open onClose={closeDialog} record={record} />
+      )}
+      {dialog === "status" && (
+        <StatusChangeDialog
+          open
+          onClose={closeDialog}
+          record={record}
+          allowedTo={allowedActions.canTransitionTo}
+        />
+      )}
+      {dialog === "close" && (
+        <CloseCaseDialog
+          open
+          onClose={closeDialog}
+          record={record}
+          allowed={allowedActions.canClose}
+        />
+      )}
+      {dialog === "reopen" && (
+        <ReopenDialog open onClose={closeDialog} record={record} />
+      )}
+    </>
   );
 }
 

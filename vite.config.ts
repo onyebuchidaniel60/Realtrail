@@ -17,5 +17,9 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     include: ['src/**/*.test.{ts,tsx}', 'convex/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'tests/e2e/**'],
+    // Bound worker concurrency: parallel jsdom + edge-runtime workers
+    // exhaust this machine and fail to spawn (flaky infrastructure
+    // failures, not test failures).
+    maxWorkers: 2,
   },
 })

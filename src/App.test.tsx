@@ -26,6 +26,11 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
+vi.mock("sonner", () => ({
+  Toaster: () => null,
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
 beforeEach(() => {
   authState.isLoaded = true;
   authState.isSignedIn = false;

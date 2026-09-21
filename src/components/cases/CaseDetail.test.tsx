@@ -106,6 +106,19 @@ const ACTIVITIES_NEWEST_FIRST = [
   },
 ];
 
+const ALLOWED_ACTIONS = {
+  canTransitionTo: ["TRIAGED"],
+  canClose: {
+    resolved: false,
+    duplicate: true,
+    invalid: true,
+    cancelled: true,
+  },
+  canReopen: false,
+  canAssign: true,
+  canEdit: true,
+};
+
 function mockDetailQueries(overrides?: {
   caseData?: unknown;
   properties?: unknown[];
@@ -118,7 +131,7 @@ function mockDetailQueries(overrides?: {
       : {
           case: CASE,
           activities: ACTIVITIES_NEWEST_FIRST,
-          allowedActions: {},
+          allowedActions: ALLOWED_ACTIONS,
         };
   mockUseQuery.mockImplementation((_fn: unknown, args: unknown) => {
     if (args === "skip") {
@@ -159,7 +172,7 @@ describe("CaseDetail", () => {
       caseData: {
         case: { ...CASE, propertyId: undefined, buildingId: undefined, unitId: undefined },
         activities: [],
-        allowedActions: {},
+        allowedActions: ALLOWED_ACTIONS,
       },
     });
     render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);

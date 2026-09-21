@@ -74,12 +74,32 @@ function mockListQueries() {
     if (args === "skip") {
       return undefined;
     }
-    if (typeof args === "object" && args !== null && "pageSize" in args) {
-      // The metrics query ({ pageSize: 100 }) is not part of the list flow.
-      if ((args as { pageSize?: number }).pageSize !== 100) {
-        capturedListArgs.push(args);
+    if (typeof args === "object" && args !== null) {
+      if ("pageSize" in args) {
+        // The metrics query ({ pageSize: 100 }) is not part of the list flow.
+        if ((args as { pageSize?: number }).pageSize !== 100) {
+          capturedListArgs.push(args);
+        }
+        return { cases: listData, nextCursor: null };
       }
-      return { cases: listData, nextCursor: null };
+      if ("caseId" in args) {
+        return {
+          case: makeCase(),
+          activities: [],
+          allowedActions: {
+            canTransitionTo: ["TRIAGED"],
+            canClose: {
+              resolved: false,
+              duplicate: true,
+              invalid: true,
+              cancelled: true,
+            },
+            canReopen: false,
+            canAssign: true,
+            canEdit: true,
+          },
+        };
+      }
     }
     return [PROP];
   });
