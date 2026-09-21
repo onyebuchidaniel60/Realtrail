@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 3 — Case Domain and State Machine (complete). Phase 4 (Dashboard and realtime operations) pending.**
+**Phase 4 — Dashboard and Realtime Operations (in progress). Sub-task 4-A complete (dashboard.get). 4-B pending (Overview screen).**
 
 ---
 
@@ -165,6 +165,7 @@ Application implementation (in progress):
 - Phase 3-A: Added cases, caseActivities, caseCounters tables with indexes. Implemented state machine helper (pure logic, all transitions + role rules). Added cases.createManual (with per-workspace monotonic case numbers), cases.updateFields, cases.assign, cases.addNote, cases.transitionStatus, cases.close, cases.reopen. Added cases.get (with computed allowedActions) and cases.list (search, filters, pagination). Cross-workspace IDOR returns NOT_FOUND per Phase 2-A convention. Case tests: 78 across state-machine (34), mutations (34), queries (10); suite total 136.
 - Phase 3-B-1: Cases list screen with metrics strip, filters (search/status/priority/property/category/assignee/sort), desktop table + mobile cards, pagination via "Load more". New Case dialog calling cases.createManual. Read-only Case Detail (header, issue section, activity timeline) with desktop side-panel layout and mobile full-screen. PriorityBadge added. MetricCard added.
 - Phase 3-B-2: Case Detail action panel with contextual next action. Six dialogs: EditCaseDialog, AssignDialog, StatusChangeDialog, NoteDialog, CloseCaseDialog, ReopenDialog — each wired to its mutation and respecting allowedActions. ConfirmDialog for destructive actions. Toast feedback via sonner. All actions respect role-based restrictions from the backend.
+- Phase 4-A: Added dashboard.get query returning metrics (open, urgent, waitingOnVendor, awaitingConfirmation, resolvedThisWeek), attention list (capped 10, priority then age sorted), operations buckets per status, upNext (capped 5), recentActivity (capped 10, denormalized with caseNumber + caseTitle). All workspace-scoped, bounded via indexes. 4h and 24h thresholds are hardcoded pending Phase 10 env vars.
 
 ---
 
@@ -288,6 +289,12 @@ src/components/common/ConfirmDialog.tsx
 src/components/common/toast.ts
 ```
 
+Phase 4-A dashboard backend:
+
+```text
+convex/dashboard.ts
+```
+
 Phase 1.4-B frontend shell:
 
 ```text
@@ -374,6 +381,9 @@ Watch especially:
 - The action panel derives its primary action from status. Two states (NEW, WORK_IN_PROGRESS) currently fall back to "Change status" until Phase 6 (AI triage review) and Phase 9 (request confirmation) provide their dedicated actions. Replace the fallback when those phases land.
 - Close and Reopen are irreversible. Both dialogs require explicit confirmation. Do not remove the confirmation step.
 - Toast feedback is the only cross-cutting notification mechanism. All future mutations should fire a toast on success; field-level validation errors render inline only.
+- dashboard.get hardcodes 4h (vendor follow-up) and 24h (confirmation reminder) thresholds. Phase 10 replaces these with REALTRAIL_* env vars.
+- operations buckets tabulate from a single cases query. If a workspace exceeds ~500 cases, this may become slow. Add per-status .count() queries if needed.
+- attention list currently cannot include "communication failed" cases because the communications table does not exist yet (Phase 5). Add this trigger in Phase 5 when the field exists.
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
@@ -399,4 +409,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 4 — Dashboard and realtime operations. Scope: dashboard.get query (open count, urgent count, waiting on vendor, awaiting confirmation, resolved this week, attention list, operations buckets, recent activity). Overview screen replacing the placeholder: header with greeting + workspace name, primary attention card, four metric cards, operations flow visualization, up-next list, recent activity. Realtime behavior verified in a second browser session. Mobile metric card transformation.**
+**Phase 4-B — Overview dashboard UI. Scope: replace Overview.tsx placeholder with: greeting header (workspace name, current date), primary attention card, four metric cards, operations flow visualization, up-next list, recent activity. Wire to dashboard.get. Verify realtime updates appear without manual refresh. Mobile metric card transformation (2-col or horizontal scroll) and horizontally-scrollable operations flow. Tests for each section, empty state, and realtime behavior.**
