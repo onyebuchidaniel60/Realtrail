@@ -8,11 +8,11 @@
 - **Frontend:** Convex static hosting
 - **Convex deployment:** https://utmost-stork-432.eu-west-1.convex.cloud
 - **Components:** none
-- **Convex features:** schema, tables, indexes, queries, mutations, realtime queries
+- **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, scheduled functions, realtime queries
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T06:18:12Z
+- **Last updated:** 2026-09-21T07:18:59Z
 
 ## Log
 
@@ -84,3 +84,6 @@ Phase 4-A: added the `dashboard.get` query — metrics, capped attention and up-
 
 ### 2026-09-21 - a0d593c
 Phase 4-B: built the Overview dashboard UI — greeting header, attention card, metric cards, operations flow, up-next list, and recent-activity list, mobile-responsive with realtime updates (5a301ca). Handoff updated (a0d593c) (`src/routes/Overview.tsx`, `src/components/dashboard/`). Convex features: realtime queries. AgentMail, OpenAI, and Firecrawl integration is still pending (Phases 5-8); the live app is not deployed yet.
+
+### 2026-09-21 - 30fe625
+Phase 5-A: inbound email pipeline. Added `communications` and `inboundEvents` tables with indexes, plus AgentMail inbox placeholders on workspaces (07e8db6, c08043f). `POST /webhooks/agentmail` verifies the Svix signature, dedupes by provider event id, and schedules canonical fetching; the AgentMail client is isolated behind a mockable Node-runtime wrapper with a 3-attempt 60s retry policy; `inbox.list` serves paginated threads with denormalized case references. Verified with 32 new tests (suite total 245). No live AgentMail account yet — all provider responses mocked. Convex features: actions, HTTP actions, scheduled functions (`convex/http.ts`, `convex/email/`, `convex/lib/providers/`).
