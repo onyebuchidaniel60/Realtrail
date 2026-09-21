@@ -230,7 +230,17 @@ export const processInboundEvent = internalAction({
         providerMessageId: message.messageId,
       },
     );
-    void stored;
+    // Hand off to AI triage without awaiting it: the webhook response
+    // stays fast, and triage carries its own idempotency marker plus
+    // retry budget. A deduped (already-stored) message already has its
+    // triage scheduled or completed, so only fresh rows schedule one.
+    if (!stored.deduped) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.email.triage.triageInbound,
+        { communicationId: stored.communicationId },
+      );
+    }
     return { status: "processed" };
   },
 });

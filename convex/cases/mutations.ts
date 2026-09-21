@@ -26,14 +26,14 @@ const statusValidator = v.union(
   v.literal("CLOSED"),
 );
 
-const priorityValidator = v.union(
+export const priorityValidator = v.union(
   v.literal("LOW"),
   v.literal("MEDIUM"),
   v.literal("HIGH"),
   v.literal("URGENT"),
 );
 
-const categoryValidator = v.union(
+export const categoryValidator = v.union(
   v.literal("plumbing"),
   v.literal("electrical"),
   v.literal("power_generator"),
@@ -47,9 +47,9 @@ const categoryValidator = v.union(
   v.literal("other"),
 );
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function bounded(
+export function bounded(
   value: string,
   min: number,
   max: number,
@@ -66,7 +66,7 @@ function bounded(
   return trimmed;
 }
 
-async function loadCaseForMember(
+export async function loadCaseForMember(
   ctx: MutationCtx,
   caseId: Id<"cases">,
   userId: Id<"users">,
