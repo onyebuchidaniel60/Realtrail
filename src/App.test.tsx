@@ -11,6 +11,7 @@ const authState = vi.hoisted(() => ({
 
 vi.mock("@clerk/clerk-react", () => ({
   useAuth: () => authState,
+  useUser: () => ({ user: { firstName: "Test" } }),
   ClerkProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   SignIn: () => <div data-testid="clerk-sign-in" />,
   SignUp: () => <div data-testid="clerk-sign-up" />,

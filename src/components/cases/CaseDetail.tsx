@@ -1,14 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import {
-  ArrowLeft,
-  ArrowRightLeft,
-  FileText,
-  Lock,
-  MessageSquare,
-  Pencil,
-  RotateCcw,
-  UserCheck,
-} from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
@@ -28,16 +19,7 @@ import { ReopenDialog } from "./dialogs/ReopenDialog";
 import { StatusChangeDialog } from "./dialogs/StatusChangeDialog";
 import { errorMessage } from "./dialogs/dialogUtils";
 import { useSyncStatus } from "@/hooks/useSyncUser";
-
-const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  CASE_CREATED: FileText,
-  STATUS_CHANGED: ArrowRightLeft,
-  ASSIGNED: UserCheck,
-  NOTE_ADDED: MessageSquare,
-  FIELDS_UPDATED: Pencil,
-  CLOSED: Lock,
-  REOPENED: RotateCcw,
-};
+import { ACTIVITY_ICONS } from "./activityIcons";
 
 function ActivityItem({ activity }: { activity: Doc<"caseActivities"> }) {
   const Icon = ACTIVITY_ICONS[activity.type] ?? FileText;
