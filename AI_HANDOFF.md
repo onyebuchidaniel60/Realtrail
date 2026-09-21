@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 3 — Case Domain and State Machine (in progress). Sub-task 3-A complete (backend). 3-B-1 complete (Cases list + read-only Case Detail). 3-B-2 pending (action panel + action dialogs).**
+**Phase 3 — Case Domain and State Machine (complete). Phase 4 (Dashboard and realtime operations) pending.**
 
 ---
 
@@ -164,6 +164,7 @@ Application implementation (in progress):
 - Phase 2-B: Extended onboarding form to collect property name/address (removed compat shim). Built Properties screen with property/building/unit hierarchy navigation and create/edit drawers. Added shared components: EmptyState, LoadingSkeleton, ErrorState, StatusBadge. Frontend tests cover the property/building/unit drill-down.
 - Phase 3-A: Added cases, caseActivities, caseCounters tables with indexes. Implemented state machine helper (pure logic, all transitions + role rules). Added cases.createManual (with per-workspace monotonic case numbers), cases.updateFields, cases.assign, cases.addNote, cases.transitionStatus, cases.close, cases.reopen. Added cases.get (with computed allowedActions) and cases.list (search, filters, pagination). Cross-workspace IDOR returns NOT_FOUND per Phase 2-A convention. Case tests: 78 across state-machine (34), mutations (34), queries (10); suite total 136.
 - Phase 3-B-1: Cases list screen with metrics strip, filters (search/status/priority/property/category/assignee/sort), desktop table + mobile cards, pagination via "Load more". New Case dialog calling cases.createManual. Read-only Case Detail (header, issue section, activity timeline) with desktop side-panel layout and mobile full-screen. PriorityBadge added. MetricCard added.
+- Phase 3-B-2: Case Detail action panel with contextual next action. Six dialogs: EditCaseDialog, AssignDialog, StatusChangeDialog, NoteDialog, CloseCaseDialog, ReopenDialog — each wired to its mutation and respecting allowedActions. ConfirmDialog for destructive actions. Toast feedback via sonner. All actions respect role-based restrictions from the backend.
 
 ---
 
@@ -278,6 +279,15 @@ src/components/cases/PriorityBadge.tsx
 src/components/common/MetricCard.tsx
 ```
 
+Phase 3-B-2 action layer:
+
+```text
+src/components/cases/CaseActionPanel.tsx
+src/components/cases/dialogs/*.tsx
+src/components/common/ConfirmDialog.tsx
+src/components/common/toast.ts
+```
+
 Phase 1.4-B frontend shell:
 
 ```text
@@ -361,6 +371,9 @@ Watch especially:
 - Assignee filter only supports "me" and "unassigned" in MVP until member-list UI exists (later phase).
 - Case Detail is read-only in 3-B-1. Action panel and dialogs land in 3-B-2. Do not add actions to CaseDetail.tsx yet — the placeholder comment marks where they go.
 - The metrics strip computes from the loaded page, not from a workspace-wide aggregate. Counts may be inaccurate for large workspaces with pagination. Note this as a known limitation; address in a later phase if needed.
+- The action panel derives its primary action from status. Two states (NEW, WORK_IN_PROGRESS) currently fall back to "Change status" until Phase 6 (AI triage review) and Phase 9 (request confirmation) provide their dedicated actions. Replace the fallback when those phases land.
+- Close and Reopen are irreversible. Both dialogs require explicit confirmation. Do not remove the confirmation step.
+- Toast feedback is the only cross-cutting notification mechanism. All future mutations should fire a toast on success; field-level validation errors render inline only.
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
@@ -386,4 +399,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 3-B-2 — Case Detail action panel and dialogs. Scope: right-side action panel (contextual next action, edit, assign, change status, add note, close, reopen), EditCaseDialog, AssignDialog, StatusChangeDialog, NoteDialog, CloseCaseDialog, ReopenDialog. Wire to cases.updateFields, cases.assign, cases.transitionStatus, cases.addNote, cases.close, cases.reopen. Respect allowedActions from cases.get. Frontend tests for each dialog including role-based disabled states.**
+**Phase 4 — Dashboard and realtime operations. Scope: dashboard.get query (open count, urgent count, waiting on vendor, awaiting confirmation, resolved this week, attention list, operations buckets, recent activity). Overview screen replacing the placeholder: header with greeting + workspace name, primary attention card, four metric cards, operations flow visualization, up-next list, recent activity. Realtime behavior verified in a second browser session. Mobile metric card transformation.**
