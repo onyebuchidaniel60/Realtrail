@@ -49,14 +49,18 @@ export const linkToCase = mutation({
       metadata: { communicationId: comm._id, fromEmail: comm.fromEmail },
       createdAt: now,
     });
+    // The activity row above is the timeline record; lastActivityAt keeps
+    // the case's ordering fresh alongside it.
+    const casePatch: { lastActivityAt: number; lastInboundAt?: number } = {
+      lastActivityAt: Math.max(record.lastActivityAt, now),
+    };
     if (
       record.lastInboundAt === undefined ||
       comm.createdAt > record.lastInboundAt
     ) {
-      await ctx.db.patch("cases", record._id, {
-        lastInboundAt: comm.createdAt,
-      });
+      casePatch.lastInboundAt = comm.createdAt;
     }
+    await ctx.db.patch("cases", record._id, casePatch);
     return { communicationId: comm._id };
   },
 });

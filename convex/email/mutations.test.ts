@@ -208,8 +208,7 @@ describe("communications.linkToCase", () => {
     expect(record?.lastInboundAt).toBe(9_000_000_000_000);
   });
 
-  test("leaves case.lastInboundAt alone when the communication is older", async () => {
-    const t = makeBackend();
+  test("leaves case.lastInboundAt alone when the communication is older", async () => {    const t = makeBackend();
     const { authed, workspaceId, caseId } = await makeCase(t, "stale");
     const newerId = await insertCommunication(t, workspaceId, {
       createdAt: 9_000_000_000_000,
@@ -227,6 +226,22 @@ describe("communications.linkToCase", () => {
     });
     const record = await t.run(async (ctx) => ctx.db.get("cases", caseId));
     expect(record?.lastInboundAt).toBe(9_000_000_000_000);
+  });
+
+  test("linking a communication bumps case.lastActivityAt", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "active");
+    const communicationId = await insertCommunication(t, workspaceId);
+    await t.run(async (ctx) => {
+      await ctx.db.patch("cases", caseId, { lastActivityAt: 1000 });
+    });
+    const before = Date.now();
+    await authed.mutation(api.email.mutations.linkToCase, {
+      communicationId,
+      caseId,
+    });
+    const record = await t.run(async (ctx) => ctx.db.get("cases", caseId));
+    expect(record?.lastActivityAt).toBeGreaterThanOrEqual(before);
   });
 });
 
