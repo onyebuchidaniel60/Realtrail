@@ -303,10 +303,19 @@ name: string
 timezone: string
 currency: string
 status: "active" | "suspended"
+agentMailInboxId: string?
+agentMailInboxAddress: string?
 createdBy: Id<users>
 createdAt: number
 updatedAt: number
 ```
+
+Indexes:
+- `by_agentMailInboxId`
+
+`agentMailInboxId` / `agentMailInboxAddress` are placeholders until Phase
+5-B provisions the live AgentMail inbox. Inbound routing looks workspaces
+up by `agentMailInboxId`; do not remove that index.
 
 ## workspaceMembers
 
@@ -503,10 +512,11 @@ updatedAt: number
 ```
 
 Indexes:
-- `by_case`
-- `by_agentmail_thread`
-- `by_agentmail_message`
-- `by_workspace_createdAt`
+- `by_workspaceId`
+- `by_caseId`
+- `by_agentMailThreadId`
+- `by_agentMailMessageId`
+- `by_workspaceId_and_createdAt`
 
 MVP stores plain-text message content for rendering. HTML is not trusted or rendered raw.
 
@@ -580,9 +590,9 @@ processedAt: number?
 ```
 
 Indexes:
-- unique-like `by_provider_event`
-- `by_provider_message`
-- `by_status`
+- unique-like `by_providerEventId`
+- `by_providerMessageId`
+- `by_processingStatus`
 
 ## notifications
 
@@ -1753,6 +1763,8 @@ Required indexes:
 ```text
 users.by_clerkUserId
 
+workspaces.by_agentMailInboxId
+
 workspaceMembers.by_workspaceId
 workspaceMembers.by_userId
 workspaceMembers.by_workspaceId_and_userId
@@ -1780,19 +1792,20 @@ caseActivities.by_workspaceId_and_createdAt
 
 caseCounters.by_workspaceId
 
-communications.by_case
-communications.by_agentmail_thread
-communications.by_agentmail_message
-communications.by_workspace_createdAt
+communications.by_workspaceId
+communications.by_caseId
+communications.by_agentMailThreadId
+communications.by_agentMailMessageId
+communications.by_workspaceId_and_createdAt
 
 vendors.by_workspace
 
 vendorResearch.by_case
 vendorResearchResults.by_research
 
-inboundEvents.by_provider_event
-inboundEvents.by_provider_message
-inboundEvents.by_status
+inboundEvents.by_providerEventId
+inboundEvents.by_providerMessageId
+inboundEvents.by_processingStatus
 
 notifications.by_user
 notifications.by_workspace
