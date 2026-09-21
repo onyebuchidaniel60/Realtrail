@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T19:13:12Z
+- **Last updated:** 2026-09-21T21:01:33Z
 
 ## Log
 
@@ -96,3 +96,6 @@ Phase 5-C-1: inbox backend for the upcoming UI. Added read state to communicatio
 
 ### 2026-09-21 - dd8fd58
 Phase 5-C-2: inbox UI. Conversation list with unread dots, linked-case badges, and filter tabs; conversation view with reading-order plain-text messages, auto-mark-read, and a link-to-case dialog with case search. Mobile list-to-conversation navigation plus a sidebar unread badge. Also fixed link-to-case to refresh the case's activity ordering. Covered with 22 new frontend tests plus 1 backend test (suite total 291). Handoff updated (dd8fd58) (`src/routes/Inbox.tsx`, `src/components/inbox/`).
+
+### 2026-09-21 - 76bc89c
+Phase 6-A: AI triage backend. OpenAI Responses API wrapper with strict JSON-schema output and local shape validation; deterministic triage prompt that treats email as untrusted data; triage action creating NEW cases with referential ID checks and its own retry budget, scheduled from the inbound pipeline; manager accept-triage mutation with role and hierarchy rules. No live key yet — all model responses mocked. Covered with 33 new tests (suite total 324). Handoff updated (76bc89c) (`convex/lib/providers/openai.ts`, `convex/email/triage.ts`, `convex/cases/triage.ts`).
