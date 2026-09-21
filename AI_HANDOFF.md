@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 5 — AgentMail Inbox and Webhooks (in progress). Sub-task 5-A complete (webhook receiver + inbound pipeline). 5-B pending human account setup. 5-C pending inbox UI.**
+**Phase 5 — AgentMail Inbox and Webhooks (in progress). Sub-tasks 5-A, 5-B complete. 5-C pending (inbox UI + case mapping).**
 
 ---
 
@@ -169,6 +169,7 @@ Application implementation (in progress):
 - Phase 4-B: Overview dashboard UI — greeting header, attention card, four metric cards with variants, operations flow visualization, up-next list, recent activity list. Consumes dashboard.get. Realtime updates verified via test. Mobile-responsive layout (2-col metrics, horizontal-scroll operations flow, stacked sections). Empty state for zero-case workspaces.
 - Session bootstrap correction: hackathon.md was stale from Phase 1.2 onward due to an incorrect DO-NOT ban on the file in phase task prompts. Backfilled via the hackathon skill from git history through Phase 4-B. Rule going forward: hackathon.md is updated by the hackathon skill at the end of every phase task, per AGENTS.md §15. It is never included in a DO-NOT list.
 - Phase 5-A: Added communications and inboundEvents tables with indexes. Implemented svix signature verification (pure, Web Crypto). Added POST /webhooks/agentmail with dedupe, scheduling, and idempotent retry. Canonical message fetch isolated behind convex/lib/providers/agentmail.ts (Node runtime, mockable via __setFetchMessageForTests). Added inbox.list query with pagination and denormalized case references. No live AgentMail account yet — all tests use mocks. Test count: 245 (was 213).
+- Phase 5-B: Live AgentMail account wired. AGENTMAIL_API_KEY and AGENTMAIL_WEBHOOK_SECRET set as Convex env vars. Inbox provisioning implemented (createInbox wrapper + internal provisionAgentMailInbox action + public provisionMyWorkspaceInbox action). Workspace inbox provisioned at onyebuchi-6730@agentmail.to. End-to-end smoke test passed: real inbound email → webhook → inboundEvents row processed → communications row created. Test count: 250 (was 245).
 
 ---
 
@@ -328,6 +329,12 @@ convex/email/processInbound.ts
 convex/email/queries.ts
 ```
 
+Phase 5-B live wiring:
+
+```text
+convex/workspaces/provisioning.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -420,6 +427,11 @@ Watch especially:
 - Retry policy: 3 attempts at 60s intervals, then failed permanently. Failed events stay in inboundEvents.
 - payloadHash is stored but not yet used — reserved for future reconciliation. providerEventId is the current dedupe key.
 - Fresh non-interactive shells default to Node 24. Run `fnm use 22` at the start of every task before running npx/npm.
+- Live AgentMail credentials are set on the Convex deployment. Rotate via the AgentMail dashboard if leaked. Never commit them.
+- Inbox provisioning is currently called manually (either via a temporary CLI mutation or the public action). Phase 5-C or 11 should wire it to workspace.create / onboarding.
+- The webhook secret must match between AgentMail's configuration and AGENTMAIL_WEBHOOK_SECRET. If inbound events fail signature verification, check both sides.
+- The live AGENTMAIL_API_KEY is inbox-scoped (no inbox:create, no inbox:read). provisionAgentMailInbox/createInbox needs an org-scoped key; the smoke-test workspace uses the pre-created inbox instead. Discover scope via GET /v0/auth/me.
+- AgentMail API corrections applied in 5-B (docs-verified): base https://api.agentmail.to, /v0 prefix, snake_case fields, webhook envelope is { event_type, event_id, message: {...} }. Svix verification needed no changes.
 
 ---
 
@@ -442,4 +454,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 5-B — live AgentMail setup (human-in-the-loop). Human creates an AgentMail account, provides AGENTMAIL_API_KEY and AGENTMAIL_WEBHOOK_SECRET (from a webhook configured to POST https://utmost-stork-432.eu-west-1.convex.site/webhooks/agentmail). Agent then sets both as Convex env vars via npx convex env set, implements AgentMail inbox provisioning (one inbox per workspace, added to workspaces.agentMailInboxId), runs a smoke test with a real inbound email, and verifies a communications row is created.**
+**Phase 5-C — Inbox UI. Scope: replace Inbox.tsx placeholder with the list + conversation pane. Left column shows communications (list), right column shows the selected conversation. Add filter tabs (All / Residents / Vendors). Show linked case when present. Add a 'Link to case' action for unlinked communications. Mobile: list → conversation → back navigation. Wire to inbox.list and add a communications.get query for the conversation view.**
