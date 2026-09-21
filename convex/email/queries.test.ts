@@ -191,4 +191,166 @@ describe("inbox.list", () => {
     expect(result.communications[0].caseNumber).toBe(created.caseNumber);
     expect(result.communications[0].caseTitle).toBe("Linked issue");
   });
+
+  test("unreadCount counts unread rows", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, "unread");
+    const first = await insertCommunication(t, workspaceId, {
+      createdAt: 1000,
+    });
+    await insertCommunication(t, workspaceId, { createdAt: 2000 });
+    await insertCommunication(t, workspaceId, { createdAt: 3000 });
+    await authed.mutation(api.email.mutations.markRead, {
+      communicationId: first,
+    });
+    const result = await authed.query(api.email.queries.list, {
+      filter: "all",
+    });
+    expect(result.unreadCount).toBe(2);
+  });
+
+  test("readAt is included in returned rows", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, "readat");
+    const communicationId = await insertCommunication(t, workspaceId, {
+      createdAt: 1000,
+    });
+    await authed.mutation(api.email.mutations.markRead, { communicationId });
+    const result = await authed.query(api.email.queries.list, {
+      filter: "all",
+    });
+    expect(result.communications).toHaveLength(1);
+    expect(result.communications[0].readAt).toBeDefined();
+  });
+
+  test("unreadCount is workspace-scoped", async () => {
+    const t = makeBackend();
+    const a = await makeWorkspace(t, "uca");
+    const b = await makeWorkspace(t, "ucb");
+    await insertCommunication(t, a.workspaceId, { createdAt: 1000 });
+    await insertCommunication(t, b.workspaceId, { createdAt: 2000 });
+    await insertCommunication(t, b.workspaceId, { createdAt: 3000 });
+    const resultA = await a.authed.query(api.email.queries.list, {
+      filter: "all",
+    });
+    const resultB = await b.authed.query(api.email.queries.list, {
+      filter: "all",
+    });
+    expect(resultA.unreadCount).toBe(1);
+    expect(resultB.unreadCount).toBe(2);
+  });
+});
+
+describe("communications.getThread", () => {
+  test("returns all thread communications ordered ascending", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, "thread");
+    await insertCommunication(t, workspaceId, {
+      createdAt: 3000,
+      threadId: "thread_asc",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 1000,
+      threadId: "thread_asc",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 2000,
+      threadId: "thread_asc",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 4000,
+      threadId: "thread_elsewhere",
+    });
+    const result = await authed.query(api.email.queries.getThread, {
+      threadId: "thread_asc",
+    });
+    expect(result.communications.map((c) => c.createdAt)).toEqual([
+      1000, 2000, 3000,
+    ]);
+    expect(result.communications[0]).toMatchObject({
+      direction: "inbound",
+      subject: "Subject 1000",
+      textBody: "Body 1000",
+      status: "received",
+      participantType: "other",
+    });
+    expect(result.linkedCase).toBeNull();
+  });
+
+  test("returns linkedCase when a row has a caseId", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, "linked-thread");
+    const created: { caseId: Id<"cases">; caseNumber: number } =
+      await authed.mutation(api.cases.mutations.createManual, {
+        title: "Thread issue",
+        description: "Tied to a thread.",
+        category: "plumbing",
+        priority: "MEDIUM",
+      });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 1000,
+      threadId: "thread_linked",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 2000,
+      threadId: "thread_linked",
+      caseId: created.caseId,
+    });
+    const result = await authed.query(api.email.queries.getThread, {
+      threadId: "thread_linked",
+    });
+    expect(result.communications).toHaveLength(2);
+    expect(result.linkedCase).toEqual({
+      _id: created.caseId,
+      caseNumber: created.caseNumber,
+      title: "Thread issue",
+    });
+  });
+
+  test("returns linkedCase null when no row is linked", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, "unlinked");
+    await insertCommunication(t, workspaceId, {
+      createdAt: 1000,
+      threadId: "thread_plain",
+    });
+    const result = await authed.query(api.email.queries.getThread, {
+      threadId: "thread_plain",
+    });
+    expect(result.communications).toHaveLength(1);
+    expect(result.linkedCase).toBeNull();
+  });
+
+  test("cross-workspace threadId returns only the caller's rows", async () => {
+    const t = makeBackend();
+    const a = await makeWorkspace(t, "twa");
+    const b = await makeWorkspace(t, "twb");
+    await insertCommunication(t, a.workspaceId, {
+      createdAt: 1000,
+      threadId: "thread_shared",
+    });
+    await insertCommunication(t, b.workspaceId, {
+      createdAt: 2000,
+      threadId: "thread_shared",
+    });
+    const resultA = await a.authed.query(api.email.queries.getThread, {
+      threadId: "thread_shared",
+    });
+    const resultB = await b.authed.query(api.email.queries.getThread, {
+      threadId: "thread_shared",
+    });
+    expect(resultA.communications).toHaveLength(1);
+    expect(resultA.communications[0].createdAt).toBe(1000);
+    expect(resultB.communications).toHaveLength(1);
+    expect(resultB.communications[0].createdAt).toBe(2000);
+  });
+
+  test("empty thread returns an empty array", async () => {
+    const t = makeBackend();
+    const { authed } = await makeWorkspace(t, "empty");
+    const result = await authed.query(api.email.queries.getThread, {
+      threadId: "thread_nonexistent",
+    });
+    expect(result).toEqual({ communications: [], linkedCase: null });
+  });
 });

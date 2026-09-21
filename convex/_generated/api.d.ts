@@ -14,6 +14,7 @@ import type * as cases_number from "../cases/number.js";
 import type * as cases_queries from "../cases/queries.js";
 import type * as cases_stateMachine from "../cases/stateMachine.js";
 import type * as dashboard from "../dashboard.js";
+import type * as email_mutations from "../email/mutations.js";
 import type * as email_processInbound from "../email/processInbound.js";
 import type * as email_queries from "../email/queries.js";
 import type * as http from "../http.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "cases/queries": typeof cases_queries;
   "cases/stateMachine": typeof cases_stateMachine;
   dashboard: typeof dashboard;
+  "email/mutations": typeof email_mutations;
   "email/processInbound": typeof email_processInbound;
   "email/queries": typeof email_queries;
   http: typeof http;

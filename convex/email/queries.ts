@@ -1,4 +1,5 @@
 import { query } from "../_generated/server";
+import type { QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireUser } from "../lib/auth";
@@ -7,6 +8,10 @@ import { appError } from "../lib/errors";
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 const PREVIEW_CHARS = 120;
+// Bound for the workspace-scoped unreadCount scan below. Workspaces past
+// this many communications undercount; a counter table needs explicit
+// approval and is out of scope.
+const UNREAD_COUNT_LIMIT = 1000;
 
 const directionValidator = v.union(
   v.literal("inbound"),
@@ -18,6 +23,31 @@ const participantTypeValidator = v.union(
   v.literal("vendor"),
   v.literal("other"),
 );
+
+const statusValidator = v.union(
+  v.literal("received"),
+  v.literal("draft"),
+  v.literal("pending_send"),
+  v.literal("sending"),
+  v.literal("sent"),
+  v.literal("failed"),
+  v.literal("send_uncertain"),
+);
+
+async function callerWorkspaceId(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<Id<"workspaces"> | null> {
+  const memberships = await ctx.db
+    .query("workspaceMembers")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+  if (memberships.length === 0) {
+    return null;
+  }
+  memberships.sort((a, b) => b.updatedAt - a.updatedAt);
+  return memberships[0].workspaceId;
+}
 
 function encodeCursor(createdAt: number, id: Id<"communications">): string {
   return `${createdAt}:${id}`;
@@ -64,21 +94,18 @@ export const list = query({
         caseNumber: v.optional(v.number()),
         caseTitle: v.optional(v.string()),
         createdAt: v.number(),
+        readAt: v.optional(v.number()),
       }),
     ),
     nextCursor: v.union(v.string(), v.null()),
+    unreadCount: v.number(),
   }),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    const memberships = await ctx.db
-      .query("workspaceMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
-    if (memberships.length === 0) {
-      return { communications: [], nextCursor: null };
+    const workspaceId = await callerWorkspaceId(ctx, user._id);
+    if (workspaceId === null) {
+      return { communications: [], nextCursor: null, unreadCount: 0 };
     }
-    memberships.sort((a, b) => b.updatedAt - a.updatedAt);
-    const workspaceId = memberships[0].workspaceId;
 
     const pageSize = Math.min(
       MAX_PAGE_SIZE,
@@ -174,8 +201,25 @@ export const list = query({
         caseNumber: parent?.caseNumber,
         caseTitle: parent?.title,
         createdAt: row.createdAt,
+        readAt: row.readAt,
       };
     });
+    // Workspace-scoped unread count, independent of the pagination window
+    // and the participant filter. Bounded single-index scan (see
+    // UNREAD_COUNT_LIMIT); large workspaces may undercount.
+    let unreadCount = 0;
+    let scanned = 0;
+    for await (const row of ctx.db
+      .query("communications")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))) {
+      if (scanned >= UNREAD_COUNT_LIMIT) {
+        break;
+      }
+      scanned += 1;
+      if (row.readAt === undefined) {
+        unreadCount += 1;
+      }
+    }
     const last = page[page.length - 1];
     return {
       communications,
@@ -183,6 +227,90 @@ export const list = query({
         hasMore && last !== undefined
           ? encodeCursor(last.createdAt, last._id)
           : null,
+      unreadCount,
+    };
+  },
+});
+
+export const getThread = query({
+  args: {
+    threadId: v.string(),
+  },
+  returns: v.object({
+    communications: v.array(
+      v.object({
+        _id: v.id("communications"),
+        direction: directionValidator,
+        fromEmail: v.string(),
+        toEmails: v.array(v.string()),
+        subject: v.string(),
+        textBody: v.string(),
+        status: statusValidator,
+        participantType: participantTypeValidator,
+        createdAt: v.number(),
+        readAt: v.optional(v.number()),
+      }),
+    ),
+    linkedCase: v.union(
+      v.null(),
+      v.object({
+        _id: v.id("cases"),
+        caseNumber: v.number(),
+        title: v.string(),
+      }),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const workspaceId = await callerWorkspaceId(ctx, user._id);
+    if (workspaceId === null) {
+      return { communications: [], linkedCase: null };
+    }
+    const rows = await ctx.db
+      .query("communications")
+      .withIndex("by_agentMailThreadId", (q) =>
+        q.eq("agentMailThreadId", args.threadId),
+      )
+      .collect();
+    // Defense-in-depth: the thread index spans all workspaces. A thread
+    // id is provider-scoped, so cross-workspace rows should not exist in
+    // MVP — but if they ever do, only the caller's workspace rows leave
+    // this query.
+    const mine = rows
+      .filter((row) => row.workspaceId === workspaceId)
+      .sort(
+        (a, b) => a.createdAt - b.createdAt || a._creationTime - b._creationTime,
+      );
+    let linkedCase: {
+      _id: Id<"cases">;
+      caseNumber: number;
+      title: string;
+    } | null = null;
+    const linked = mine.find((row) => row.caseId !== undefined);
+    if (linked !== undefined && linked.caseId !== undefined) {
+      const parent = await ctx.db.get("cases", linked.caseId);
+      if (parent !== null && parent.workspaceId === workspaceId) {
+        linkedCase = {
+          _id: parent._id,
+          caseNumber: parent.caseNumber,
+          title: parent.title,
+        };
+      }
+    }
+    return {
+      communications: mine.map((row) => ({
+        _id: row._id,
+        direction: row.direction,
+        fromEmail: row.fromEmail,
+        toEmails: row.toEmails,
+        subject: row.subject,
+        textBody: row.textBody,
+        status: row.status,
+        participantType: row.participantType,
+        createdAt: row.createdAt,
+        readAt: row.readAt,
+      })),
+      linkedCase,
     };
   },
 });

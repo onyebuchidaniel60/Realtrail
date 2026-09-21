@@ -230,6 +230,8 @@ export default defineSchema({
     providerDraftId: v.optional(v.string()),
     providerMessageId: v.optional(v.string()),
     lastError: v.optional(v.string()),
+    // Read state for the inbox UI. Undefined means unread.
+    readAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
