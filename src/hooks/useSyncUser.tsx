@@ -2,17 +2,23 @@ import { useAuth } from "@clerk/clerk-react";
 import { useMutation } from "convex/react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
-const SyncContext = createContext<boolean>(false);
+interface SyncState {
+  synced: boolean;
+  userId: Id<"users"> | null;
+}
 
-export function useSyncStatus(): boolean {
+const SyncContext = createContext<SyncState>({ synced: false, userId: null });
+
+export function useSyncStatus(): SyncState {
   return useContext(SyncContext);
 }
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn } = useAuth();
   const syncUser = useMutation(api.users.syncUser);
-  const [synced, setSynced] = useState(false);
+  const [state, setState] = useState<SyncState>({ synced: false, userId: null });
   const ranRef = useRef(false);
 
   useEffect(() => {
@@ -21,8 +27,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }
     ranRef.current = true;
     syncUser({})
-      .then(() => {
-        setSynced(true);
+      .then((userId) => {
+        setState({ synced: true, userId });
       })
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {
@@ -31,7 +37,5 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       });
   }, [isSignedIn, syncUser]);
 
-  return (
-    <SyncContext.Provider value={synced}>{children}</SyncContext.Provider>
-  );
+  return <SyncContext.Provider value={state}>{children}</SyncContext.Provider>;
 }

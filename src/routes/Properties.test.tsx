@@ -23,7 +23,7 @@ vi.mock("convex/react", async (importOriginal) => {
 });
 
 vi.mock("@/hooks/useSyncUser", () => ({
-  useSyncStatus: () => true,
+  useSyncStatus: () => ({ synced: true, userId: null }),
   SyncProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 

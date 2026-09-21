@@ -55,7 +55,7 @@ function defaultTimezone(): string {
 // Property details collected here create the first property atomically
 // with the workspace (single backend mutation).
 export function OnboardingPage() {
-  const synced = useSyncStatus();
+  const { synced } = useSyncStatus();
   const current = useQuery(
     api.workspace.getCurrent,
     synced ? {} : "skip",

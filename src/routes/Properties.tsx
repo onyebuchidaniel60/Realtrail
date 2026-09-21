@@ -386,7 +386,7 @@ function UnitDialog({
 }
 
 export function PropertiesPage() {
-  const synced = useSyncStatus();
+  const { synced } = useSyncStatus();
   const properties = useQuery(api.properties.list, synced ? {} : "skip");
 
   const [selectedPropertyId, setSelectedPropertyId] =

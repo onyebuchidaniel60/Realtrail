@@ -7,7 +7,7 @@ import { useSyncStatus } from "@/hooks/useSyncUser";
 // TODO(Phase 4): replace with the real operations dashboard (metric cards,
 // attention card, operations flow, up-next list, recent activity).
 export function OverviewPage() {
-  const synced = useSyncStatus();
+  const { synced } = useSyncStatus();
   const current = useQuery(
     api.workspace.getCurrent,
     synced ? {} : "skip",
