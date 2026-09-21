@@ -174,7 +174,19 @@ describe("triageMessage", () => {
     expect(body.model).toBe("test-model");
   });
 
-  test("OpenRouter request adds routing headers and require_parameters", async () => {
+  test("OpenAI-direct branch includes no provider object", async () => {
+    delete process.env.OPENAI_BASE_URL;
+    const fetchMock = mockFetchJson(
+      responsesEnvelope(JSON.stringify(validSuggestion())),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await triageMessage(args());
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("provider");
+  });
+
+  test("OpenRouter request adds routing headers and provider object", async () => {
     process.env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
     try {
       const fetchMock = mockFetchJson(
@@ -192,7 +204,12 @@ describe("triageMessage", () => {
       expect(headers["HTTP-Referer"]).toBe("https://realtrail.local");
       expect(headers["X-OpenRouter-Title"]).toBe("Realtrail");
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
-      expect(body.require_parameters).toBe(true);
+      expect(body).not.toHaveProperty("require_parameters");
+      expect(body.provider).toEqual({
+        order: ["azure/swedencentral"],
+        allow_fallbacks: false,
+        require_parameters: true,
+      });
       expect(body.model).toBe("openai/gpt-4o-mini");
       // Structured output shape is preserved on OpenRouter.
       const format = (body.text as Record<string, unknown>).format as Record<

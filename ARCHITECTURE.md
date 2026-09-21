@@ -156,6 +156,34 @@ Environment variables:
   "openai/gpt-4o-mini" for OpenRouter)
 - `OPENAI_DRAFT_MODEL` — same
 
+## Provider routing (OpenRouter)
+
+When OPENAI_BASE_URL points at OpenRouter, the request includes a
+provider object that pins routing to Azure Sweden Central:
+
+```text
+provider: {
+  order: ["azure/swedencentral"],
+  allow_fallbacks: false,
+  require_parameters: true,
+}
+```
+
+Rationale:
+- Azure Sweden Central has a 0.00% structured output failure rate
+  (compared to 0.19% for OpenAI direct), which matters because
+  triage JSON must strictly match the schema.
+- Sweden Central is in the EU, aligning data processing with the
+  eu-west-1 Convex deployment region.
+- allow_fallbacks is false so provider identity is deterministic.
+  If routing fails, the triage action falls back to its retry
+  path rather than silently using a different provider.
+
+If the pinned provider is unavailable for an extended period,
+allow_fallbacks can be flipped to true and order extended to
+["azure/swedencentral", "openai"] — but this must be an explicit
+human decision, not a silent fallback.
+
 ## Web research
 
 **Firecrawl**

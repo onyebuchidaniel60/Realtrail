@@ -7,9 +7,9 @@
 //     Responses API request, no extra headers or fields.
 //   - OpenRouter: any base URL whose hostname contains "openrouter.ai"
 //     (e.g. https://openrouter.ai/api/v1). Adds the HTTP-Referer and
-//     X-OpenRouter-Title headers plus top-level require_parameters: true,
-//     which forces routing to endpoints with strict structured-output
-//     support. Model IDs are provider-scoped (e.g. "openai/gpt-4o-mini").
+//     X-OpenRouter-Title headers plus a provider object pinning routing
+//     to Azure Sweden Central with require_parameters. Model IDs are
+//     provider-scoped (e.g. "openai/gpt-4o-mini").
 //
 // Environment variables:
 //   OPENAI_BASE_URL — provider endpoint (default: OpenAI direct)
@@ -236,6 +236,15 @@ export async function triageMessage(
       process.env.PUBLIC_APP_URL || "https://realtrail.local";
     headers["X-OpenRouter-Title"] = "Realtrail";
   }
+  // OpenRouter routing (verified against OpenRouter's API shape —
+  // require_parameters belongs inside provider, not at top level):
+  //   order: ["azure/swedencentral"] pins routing to Azure's Sweden
+  //     Central region (0.00% structured output failure rate; EU data
+  //     processing matching the eu-west-1 Convex deployment).
+  //   allow_fallbacks: false fails the request rather than silently
+  //     routing elsewhere: deterministic provider identity over uptime.
+  //   require_parameters: true skips endpoints that treat the strict
+  //     json_schema as a hint.
   let response: Response;
   try {
     response = await fetch(`${baseUrl}/responses`, {
@@ -254,9 +263,15 @@ export async function triageMessage(
           },
         },
         store: false,
-        // OpenRouter only: restrict routing to endpoints that honor
-        // strict structured outputs.
-        ...(viaOpenRouter ? { require_parameters: true } : {}),
+        ...(viaOpenRouter
+          ? {
+              provider: {
+                order: ["azure/swedencentral"],
+                allow_fallbacks: false,
+                require_parameters: true,
+              },
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(TRIAGE_TIMEOUT_MS),
     });
