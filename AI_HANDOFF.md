@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 5 — AgentMail Inbox and Webhooks (in progress). Sub-tasks 5-A, 5-B complete. 5-C pending (inbox UI + case mapping).**
+**Phase 5 — AgentMail Inbox and Webhooks (in progress). Sub-tasks 5-A, 5-B, 5-C-1 complete. 5-C-2 pending (Inbox UI).**
 
 ---
 
@@ -170,6 +170,7 @@ Application implementation (in progress):
 - Session bootstrap correction: hackathon.md was stale from Phase 1.2 onward due to an incorrect DO-NOT ban on the file in phase task prompts. Backfilled via the hackathon skill from git history through Phase 4-B. Rule going forward: hackathon.md is updated by the hackathon skill at the end of every phase task, per AGENTS.md §15. It is never included in a DO-NOT list.
 - Phase 5-A: Added communications and inboundEvents tables with indexes. Implemented svix signature verification (pure, Web Crypto). Added POST /webhooks/agentmail with dedupe, scheduling, and idempotent retry. Canonical message fetch isolated behind convex/lib/providers/agentmail.ts (Node runtime, mockable via __setFetchMessageForTests). Added inbox.list query with pagination and denormalized case references. No live AgentMail account yet — all tests use mocks. Test count: 245 (was 213).
 - Phase 5-B: Live AgentMail account wired. AGENTMAIL_API_KEY and AGENTMAIL_WEBHOOK_SECRET set as Convex env vars. Inbox provisioning implemented (createInbox wrapper + internal provisionAgentMailInbox action + public provisionMyWorkspaceInbox action). Workspace inbox provisioned at onyebuchi-6730@agentmail.to. End-to-end smoke test passed: real inbound email → webhook → inboundEvents row processed → communications row created. Test count: 250 (was 245).
+- Phase 5-C-1: Added readAt to communications. Added communications.getThread, communications.linkToCase, communications.markRead, communications.markThreadRead. inbox.list now returns readAt and workspace-scoped unreadCount. Test count: 268.
 
 ---
 
@@ -335,6 +336,12 @@ Phase 5-B live wiring:
 convex/workspaces/provisioning.ts
 ```
 
+Phase 5-C-1 inbox backend:
+
+```text
+convex/email/mutations.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -432,6 +439,9 @@ Watch especially:
 - The webhook secret must match between AgentMail's configuration and AGENTMAIL_WEBHOOK_SECRET. If inbound events fail signature verification, check both sides.
 - The live AGENTMAIL_API_KEY is inbox-scoped (no inbox:create, no inbox:read). provisionAgentMailInbox/createInbox needs an org-scoped key; the smoke-test workspace uses the pre-created inbox instead. Discover scope via GET /v0/auth/me.
 - AgentMail API corrections applied in 5-B (docs-verified): base https://api.agentmail.to, /v0 prefix, snake_case fields, webhook envelope is { event_type, event_id, message: {...} }. Svix verification needed no changes.
+- unreadCount in inbox.list is computed in-memory over a bounded page. For workspaces with >1000 communications, this may undercount. Add a counter table only with explicit approval.
+- linkToCase only supports inbound communications. Outbound linking is out of scope.
+- A test workspace (jd730jjct6kj4dyq27rwccfc0x8ety58) was created during Phase 5-B smoke testing. It contains test data and is not the human's primary workspace. Clean up in Phase 11 or via a manual admin task.
 
 ---
 
@@ -454,4 +464,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 5-C — Inbox UI. Scope: replace Inbox.tsx placeholder with the list + conversation pane. Left column shows communications (list), right column shows the selected conversation. Add filter tabs (All / Residents / Vendors). Show linked case when present. Add a 'Link to case' action for unlinked communications. Mobile: list → conversation → back navigation. Wire to inbox.list and add a communications.get query for the conversation view.**
+**Phase 5-C-2 — Inbox UI. Scope: replace Inbox.tsx placeholder with list + conversation pane. Filter tabs (All / Residents / Vendors). Read indicators. Link-to-case action for unlinked inbound communications. Mobile: list → conversation → back. Wire to inbox.list, communications.getThread, communications.linkToCase, communications.markRead/markThreadRead.**
