@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 4 — Dashboard and Realtime Operations (in progress). Sub-task 4-A complete (dashboard.get). 4-B pending (Overview screen).**
+**Phase 4 — Dashboard and Realtime Operations (complete). Phase 5 (AgentMail inbox and webhooks) pending.**
 
 ---
 
@@ -166,6 +166,7 @@ Application implementation (in progress):
 - Phase 3-B-1: Cases list screen with metrics strip, filters (search/status/priority/property/category/assignee/sort), desktop table + mobile cards, pagination via "Load more". New Case dialog calling cases.createManual. Read-only Case Detail (header, issue section, activity timeline) with desktop side-panel layout and mobile full-screen. PriorityBadge added. MetricCard added.
 - Phase 3-B-2: Case Detail action panel with contextual next action. Six dialogs: EditCaseDialog, AssignDialog, StatusChangeDialog, NoteDialog, CloseCaseDialog, ReopenDialog — each wired to its mutation and respecting allowedActions. ConfirmDialog for destructive actions. Toast feedback via sonner. All actions respect role-based restrictions from the backend.
 - Phase 4-A: Added dashboard.get query returning metrics (open, urgent, waitingOnVendor, awaitingConfirmation, resolvedThisWeek), attention list (capped 10, priority then age sorted), operations buckets per status, upNext (capped 5), recentActivity (capped 10, denormalized with caseNumber + caseTitle). All workspace-scoped, bounded via indexes. 4h and 24h thresholds are hardcoded pending Phase 10 env vars.
+- Phase 4-B: Overview dashboard UI — greeting header, attention card, four metric cards with variants, operations flow visualization, up-next list, recent activity list. Consumes dashboard.get. Realtime updates verified via test. Mobile-responsive layout (2-col metrics, horizontal-scroll operations flow, stacked sections). Empty state for zero-case workspaces.
 
 ---
 
@@ -295,6 +296,16 @@ Phase 4-A dashboard backend:
 convex/dashboard.ts
 ```
 
+Phase 4-B dashboard UI:
+
+```text
+src/components/dashboard/AttentionCard.tsx
+src/components/dashboard/MetricCardsRow.tsx
+src/components/dashboard/OperationsFlow.tsx
+src/components/dashboard/UpNextList.tsx
+src/components/dashboard/RecentActivityList.tsx
+```
+
 Phase 1.4-B frontend shell:
 
 ```text
@@ -384,6 +395,9 @@ Watch especially:
 - dashboard.get hardcodes 4h (vendor follow-up) and 24h (confirmation reminder) thresholds. Phase 10 replaces these with REALTRAIL_* env vars.
 - operations buckets tabulate from a single cases query. If a workspace exceeds ~500 cases, this may become slow. Add per-status .count() queries if needed.
 - attention list currently cannot include "communication failed" cases because the communications table does not exist yet (Phase 5). Add this trigger in Phase 5 when the field exists.
+- Attention card count under-reports if attention list exceeds 10 (backend cap). Dashboard.get may need an attentionCount field in a future phase.
+- Operations flow shows six stages (NEW → TRIAGED → IN_PROGRESS → VENDOR_CONTACTED → AWAITING_CONFIRMATION → RESOLVED). SCHEDULED, WORK_IN_PROGRESS, and CLOSED are surfaced as secondary counts. The flow is visual-only; making it filter the Cases screen is a Phase 12 enhancement.
+- Full-suite test flakes under load remain a known infrastructure issue. maxWorkers: 2 mitigation is in place.
 - Design tokens are NOT yet applied. The shell uses shadcn neutral/slate defaults. Phase 12 applies brand colors (lavender primary, lime positive, warm yellow warning, off-white background).
 - Onboarding collects only workspace details. Phase 2 extends it to collect property name/address and initial building/unit.
 - The boot-time users.syncUser call runs in the AppShell wrapper. Any route outside AppShell (sign-in, sign-up) does not run it. This is intentional — the user row is only needed for authenticated routes.
@@ -409,4 +423,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 4-B — Overview dashboard UI. Scope: replace Overview.tsx placeholder with: greeting header (workspace name, current date), primary attention card, four metric cards, operations flow visualization, up-next list, recent activity. Wire to dashboard.get. Verify realtime updates appear without manual refresh. Mobile metric card transformation (2-col or horizontal scroll) and horizontally-scrollable operations flow. Tests for each section, empty state, and realtime behavior.**
+**Phase 5-A — AgentMail inbox provisioning and webhook receiver. Scope: communications and inboundEvents tables; POST /webhooks/agentmail HTTP action with signature verification; internal mutation to record inbound events with dedupe; scheduled processing to fetch canonical message and store communication; inbox.list query; inbox UI (list + conversation pane). Vendor/resident classification, AI triage on inbound, and reply routing are Phase 5-B.**
