@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 5 — AgentMail Inbox and Webhooks (complete). Phase 6 (AI triage) pending.**
+**Phase 6 — AI Triage (in progress). Sub-task 6-A complete (backend triage). 6-B pending human OpenAI setup. 6-C pending review UI.**
 
 ---
 
@@ -172,6 +172,7 @@ Application implementation (in progress):
 - Phase 5-B: Live AgentMail account wired. AGENTMAIL_API_KEY and AGENTMAIL_WEBHOOK_SECRET set as Convex env vars. Inbox provisioning implemented (createInbox wrapper + internal provisionAgentMailInbox action + public provisionMyWorkspaceInbox action). Workspace inbox provisioned at onyebuchi-6730@agentmail.to. End-to-end smoke test passed: real inbound email → webhook → inboundEvents row processed → communications row created. Test count: 250 (was 245).
 - Phase 5-C-1: Added readAt to communications. Added communications.getThread, communications.linkToCase, communications.markRead, communications.markThreadRead. inbox.list now returns readAt and workspace-scoped unreadCount. Test count: 268.
 - Phase 5-C-2: Inbox UI complete — conversation list with unread indicators and linked-case badges, filter tabs (All/Residents/Vendors), conversation view with plain-text messages, auto-mark-read on open, link-to-case dialog with case search. Mobile: list → conversation → back. Sidebar unread badge added. Fixed linkToCase to bump case.lastActivityAt. Test count: 291.
+- Phase 6-A: OpenAI client wrapper (Responses API, structured output, mockable). Triage prompt with injection defenses. ai.triageInbound action integrated into the inbound pipeline. cases.acceptAiTriage mutation. Referential ID checks drop invalid AI candidates. Triaged cases start in status NEW with aiTriageStatus completed. Test count: 324.
 
 ---
 
@@ -352,6 +353,15 @@ src/components/inbox/ConversationView.tsx
 src/components/inbox/LinkToCaseDialog.tsx
 ```
 
+Phase 6-A triage backend:
+
+```text
+convex/lib/providers/openai.ts
+convex/lib/providers/triagePrompt.ts
+convex/email/triage.ts
+convex/cases/triage.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -456,6 +466,11 @@ Watch especially:
 - Inbound emails render as plain text only. Never render HTML from email bodies. This is a security requirement (§14 XSS in ARCHITECTURE.md).
 - Auto-mark-read fires once per thread open after a short delay. If a user rapidly switches threads, the timer may fire for the wrong thread — the ref guard prevents duplicates on the same thread. This is acceptable MVP behavior.
 - The sidebar unread badge uses the workspace-wide unreadCount. Filter-specific counts are not pre-fetched; only the currently-selected filter has a badge in the tab bar.
+- OPENAI_API_KEY, OPENAI_TRIAGE_MODEL, OPENAI_DRAFT_MODEL are NOT set on the Convex deployment. Live triage will fail until Phase 6-B sets them.
+- AI output is advisory. Cases created from triage start in status NEW and require human review via acceptAiTriage before they become TRIAGED.
+- AI never sets priority to URGENT downgrading a human-set URGENT — enforced at the mutation layer.
+- Referential checks drop invalid AI-selected property/building/unit/case IDs. The raw AI output is preserved in aiTriageOutput for audit.
+- Email content is treated as untrusted data, wrapped in delimiters. Do not remove the injection-defense directives from triagePrompt.ts.
 
 ---
 
@@ -478,4 +493,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 6-A — AI triage backend. Scope: OpenAI client wrapper, structured triage output schema, ai.triageInbound action, cases created from inbound communications, aiTriageStatus lifecycle, integration with the inbound pipeline. AI must not auto-close or auto-transition; output is stored as suggestions for manager review. Test with mocked OpenAI responses.**
+**Phase 6-B — live OpenAI setup (human-in-the-loop). Human creates an OpenAI API key with access to the Responses API, provides it, and specifies the triage model (default gpt-4o-mini or the current equivalent). Agent then: sets OPENAI_API_KEY, OPENAI_TRIAGE_MODEL, OPENAI_DRAFT_MODEL as Convex env vars, runs a live smoke test with a real inbound email, and verifies a case is created with valid triage suggestions.**
