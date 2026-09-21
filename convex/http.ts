@@ -65,25 +65,37 @@ http.route({
     if (typeof envelope !== "object" || envelope === null) {
       return errorResponse(400, "WEBHOOK_INVALID", "Malformed JSON payload.");
     }
-    // Provider envelope field mapping. AgentMail's exact event shape is
-    // reconciled against the live API in Phase 5-B; until then accept the
-    // documented candidates and reject envelopes without an event id or
-    // inbox id rather than guessing.
+    // Provider envelope mapping, per the documented message.received
+    // shape: { event_type, event_id, message: { inbox_id, thread_id,
+    // message_id, ... }, thread: {...} }. Documented snake_case names come
+    // first; older guesses trail as tolerance, never as primary keys.
     const record = envelope as Record<string, unknown>;
+    const messageValue = record.message;
+    const messageRecord =
+      typeof messageValue === "object" && messageValue !== null
+        ? (messageValue as Record<string, unknown>)
+        : undefined;
     const providerEventId =
-      asOptionalString(record.providerEventId) ??
-      asOptionalString(record.eventId) ??
       asOptionalString(record.event_id) ??
+      asOptionalString(record.eventId) ??
+      asOptionalString(record.providerEventId) ??
       asOptionalString(record.id);
     const providerInboxId =
-      asOptionalString(record.providerInboxId) ??
+      (messageRecord !== undefined
+        ? asOptionalString(messageRecord.inbox_id)
+        : undefined) ??
+      asOptionalString(record.inbox_id) ??
       asOptionalString(record.inboxId) ??
-      asOptionalString(record.inbox_id);
+      asOptionalString(record.providerInboxId);
     const providerMessageId =
-      asOptionalString(record.providerMessageId) ??
+      (messageRecord !== undefined
+        ? asOptionalString(messageRecord.message_id)
+        : undefined) ??
+      asOptionalString(record.message_id) ??
       asOptionalString(record.messageId) ??
-      asOptionalString(record.message_id);
+      asOptionalString(record.providerMessageId);
     const eventType =
+      asOptionalString(record.event_type) ??
       asOptionalString(record.eventType) ??
       asOptionalString(record.type) ??
       "unknown";

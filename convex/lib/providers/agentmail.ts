@@ -4,14 +4,12 @@
 //
 // Third-party API shapes must not leak into business logic: this module is
 // the only place that talks to AgentMail over HTTP, and it normalizes the
-// provider response into AgentMailMessage. Callers (Convex actions) only
-// ever see the normalized shape.
+// provider response into domain shapes. Callers (Convex actions) only ever
+// see the normalized shapes.
 //
-// NOTE (Phase 5-B): no live AgentMail account exists yet, so the exact REST
-// path and response field names below are provisional. Phase 5-B reconciles
-// them against the live API with a real-inbound smoke test. All tests in
-// this phase inject mocks through __setFetchMessageForTests and never touch
-// the network.
+// API surface verified against https://docs.agentmail.to (Phase 5-B):
+// base URL https://api.agentmail.to, version prefix /v0, snake_case fields.
+// Bearer auth on every request.
 
 import { appError } from "../errors";
 
@@ -32,9 +30,9 @@ export type FetchMessageArgs = {
   messageId: string;
 };
 
-// Provisional base URL. Reconcile against the live AgentMail API in
-// Phase 5-B before any production traffic.
-const AGENTMAIL_BASE_URL = "https://api.agentmail.com";
+// Production server. Verified against the AgentMail docs in Phase 5-B
+// (earlier provisional value api.agentmail.com was wrong).
+const AGENTMAIL_BASE_URL = "https://api.agentmail.to";
 
 const FETCH_TIMEOUT_MS = 15_000;
 
@@ -78,13 +76,19 @@ function normalizeMessage(
   if (typeof raw !== "object" || raw === null) {
     appError("PROVIDER_ERROR", "AgentMail returned a malformed message.");
   }
+  // Documented get-message fields are snake_case (message_id, thread_id,
+  // from, to, subject, text, timestamp as an ISO datetime). Older camelCase
+  // fallbacks are kept last for tolerance, never first.
   const record = raw as Record<string, unknown>;
-  const messageId = asString(record.messageId ?? record.id);
-  const threadId = asString(record.threadId ?? record.thread_id);
+  const messageId = asString(record.message_id ?? record.messageId);
+  const threadId = asString(record.thread_id ?? record.threadId);
   const from = asString(record.from ?? record.fromEmail);
   const subject = asString(record.subject) ?? "";
-  const text = asString(record.text ?? record.textBody ?? record.body) ?? "";
-  const timestamp = asTimestamp(record.timestamp ?? record.createdAt);
+  const text =
+    asString(
+      record.text ?? record.extracted_text ?? record.preview ?? record.textBody,
+    ) ?? "";
+  const timestamp = asTimestamp(record.timestamp ?? record.created_at);
   const toRaw = record.to ?? record.toEmails;
   const to = Array.isArray(toRaw)
     ? toRaw.filter((entry): entry is string => typeof entry === "string")
@@ -107,7 +111,7 @@ export async function fetchMessage(
     return testOverride(args);
   }
   const url =
-    `${AGENTMAIL_BASE_URL}/v1/inboxes/${encodeURIComponent(args.inboxId)}` +
+    `${AGENTMAIL_BASE_URL}/v0/inboxes/${encodeURIComponent(args.inboxId)}` +
     `/messages/${encodeURIComponent(args.messageId)}`;
   let response: Response;
   try {
@@ -145,6 +149,92 @@ export async function fetchMessage(
   return normalizeMessage(args.inboxId, raw);
 }
 
+export type CreateInboxArgs = {
+  apiKey: string;
+  // Stable caller-side identifier. Sent as the provider's client_id, which
+  // makes repeated creates idempotent provider-side: a retry returns the
+  // ORIGINAL inbox instead of a duplicate. Must not contain "@".
+  clientId: string;
+  displayName: string;
+};
+
+export type CreatedInbox = {
+  inboxId: string;
+  address: string;
+};
+
+type CreateInboxFn = (args: CreateInboxArgs) => Promise<CreatedInbox>;
+
+let testCreateInboxOverride: CreateInboxFn | undefined;
+
+export function __setCreateInboxForTests(
+  fn: CreateInboxFn | undefined,
+): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("__setCreateInboxForTests is test-only.");
+  }
+  testCreateInboxOverride = fn;
+}
+
+export async function createInbox(
+  args: CreateInboxArgs,
+): Promise<CreatedInbox> {
+  if (testCreateInboxOverride !== undefined) {
+    return testCreateInboxOverride(args);
+  }
+  // username is deliberately omitted: the provider generates one, which
+  // avoids collisions between same-named workspaces. Idempotency comes
+  // from client_id (workspaceId), not from the username.
+  let response: Response;
+  try {
+    response = await fetch(`${AGENTMAIL_BASE_URL}/v0/inboxes`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        display_name: args.displayName,
+        client_id: args.clientId,
+      }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.name : "fetch failed";
+    appError(
+      "PROVIDER_ERROR",
+      `AgentMail inbox creation failed (${detail}).`,
+      undefined,
+      true,
+    );
+  }
+  if (!response.ok) {
+    const retryable = response.status === 429 || response.status >= 500;
+    appError(
+      "PROVIDER_ERROR",
+      `AgentMail inbox creation failed with status ${response.status}.`,
+      undefined,
+      retryable,
+    );
+  }
+  let raw: unknown;
+  try {
+    raw = await response.json();
+  } catch {
+    appError("PROVIDER_ERROR", "AgentMail returned a malformed inbox.");
+  }
+  if (typeof raw !== "object" || raw === null) {
+    appError("PROVIDER_ERROR", "AgentMail returned a malformed inbox.");
+  }
+  const record = raw as Record<string, unknown>;
+  const inboxId = asString(record.inbox_id);
+  const address = asString(record.email);
+  if (inboxId === undefined || address === undefined) {
+    appError("PROVIDER_ERROR", "AgentMail returned a malformed inbox.");
+  }
+  return { inboxId, address };
+}
+
 // Declared, not implemented — each throws until its phase lands.
 export async function sendMessage(): Promise<never> {
   throw new Error("NOT_IMPLEMENTED: sendMessage lands in Phase 8.");
@@ -152,10 +242,6 @@ export async function sendMessage(): Promise<never> {
 
 export async function createDraft(): Promise<never> {
   throw new Error("NOT_IMPLEMENTED: createDraft lands in Phase 8.");
-}
-
-export async function createInbox(): Promise<never> {
-  throw new Error("NOT_IMPLEMENTED: createInbox lands in Phase 5-B.");
 }
 
 export async function listThreads(): Promise<never> {
