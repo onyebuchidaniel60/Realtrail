@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T22:50:40Z
+- **Last updated:** 2026-09-21T23:05:30Z
 
 ## Log
 
@@ -102,3 +102,6 @@ Phase 6-A: AI triage backend. OpenAI Responses API wrapper with strict JSON-sche
 
 ### 2026-09-21 - cf806df
 Correction: the triage client is now provider-neutral via a base-URL setting, with OpenRouter supported (routing headers plus strict-output enforcement), and the test runner is pinned to a single worker for deterministic full-suite runs (327 tests green). Handoff updated (cf806df) (`convex/lib/providers/openai.ts`, `vite.config.ts`).
+
+### 2026-09-21 - 436790d
+Routing fix: OpenRouter triage requests now pin to Azure Sweden Central with fallbacks disabled and strict-output routing enforced inside a proper provider object (the previous top-level flag would have been ignored). Covered by updated provider tests (suite total 328). Handoff updated (436790d) (`convex/lib/providers/openai.ts`).
