@@ -20,6 +20,9 @@ export default defineConfig({
     // Bound worker concurrency: parallel jsdom + edge-runtime workers
     // exhaust this machine and fail to spawn (flaky infrastructure
     // failures, not test failures).
-    maxWorkers: 2,
+    // maxWorkers pinned to 1: full-suite runs at higher worker counts
+    // produce fork-spawn flakes on this machine (exit -1, no assertion
+    // failures). Determinism over speed for the MVP.
+    maxWorkers: 1,
   },
 })
