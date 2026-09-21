@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-21T07:18:59Z
+- **Last updated:** 2026-09-21T17:40:53Z
 
 ## Log
 
@@ -87,3 +87,6 @@ Phase 4-B: built the Overview dashboard UI — greeting header, attention card, 
 
 ### 2026-09-21 - 30fe625
 Phase 5-A: inbound email pipeline. Added `communications` and `inboundEvents` tables with indexes, plus AgentMail inbox placeholders on workspaces (07e8db6, c08043f). `POST /webhooks/agentmail` verifies the Svix signature, dedupes by provider event id, and schedules canonical fetching; the AgentMail client is isolated behind a mockable Node-runtime wrapper with a 3-attempt 60s retry policy; `inbox.list` serves paginated threads with denormalized case references. Verified with 32 new tests (suite total 245). No live AgentMail account yet — all provider responses mocked. Convex features: actions, HTTP actions, scheduled functions (`convex/http.ts`, `convex/email/`, `convex/lib/providers/`).
+
+### 2026-09-21 - 662c371
+Phase 5-B: live AgentMail wiring. Set the API key and webhook secret as Convex env vars, verified the API surface against the official docs, and corrected three provisional assumptions from 5-A (base URL, `/v0` prefix, snake_case fields and webhook envelope). Implemented inbox provisioning (`createInbox` with `client_id` idempotency plus internal and public provisioning actions) with 5 new tests (suite total 250). Provisioned the workspace inbox and validated the full pipeline with a real inbound email: webhook verified, event processed, communication stored (3e2aa90). Handoff updated (662c371) (`convex/workspaces/provisioning.ts`, `convex/lib/providers/agentmail.ts`).
