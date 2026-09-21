@@ -6,13 +6,13 @@
 - **Live app:** not deployed
 - **Repo:** https://github.com/onyebuchidaniel60/Realtrail
 - **Frontend:** Convex static hosting
-- **Convex deployment:** not deployed
+- **Convex deployment:** https://utmost-stork-432.eu-west-1.convex.cloud
 - **Components:** none
-- **Convex features:** none yet
-- **Auth:** none
+- **Convex features:** schema, tables, indexes, queries, mutations, realtime queries
+- **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-20T10:46:46Z
+- **Last updated:** 2026-09-21T06:18:12Z
 
 ## Log
 
@@ -20,10 +20,10 @@
 Repository created with a placeholder README. No application code yet.
 
 ### 2026-09-20 - 992273f
-Pinned Node 22 via `.nvmrc` and committed the specification baseline: product spec, architecture, implementation plan, and agent rules (`.nvmrc`, `PROJECT_SPEC.md`, `ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `AGENTS.md`).
+Pinned Node 22 via `.nvmrc` (0357231) and committed the Realtrail specification baseline: product spec, architecture, implementation plan, agent rules, and blueprint (992273f) (`PROJECT_SPEC.md`, `ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `AGENTS.md`, `REALTRAIL_COMPLETE_BLUEPRINT.md`).
 
 ### 2026-09-20 - 94dfe37
-Scaffolded the frontend foundation: Vite + React + TypeScript + Tailwind v4 + shadcn/ui primitives + routing + Vitest + Playwright, with lint, typecheck, unit, build, and e2e scripts all passing. Typecheck covers both TS projects; unused Tailwind v3-era dependencies removed (`package.json`, `vite.config.ts`, `src/`, `tests/`).
+Scaffolded the frontend foundation: Vite + React + TypeScript + Tailwind v4 + shadcn/ui primitives + routing + Vitest + Playwright, with lint, typecheck, unit, build, and e2e scripts all passing (`package.json`, `vite.config.ts`, `src/`, `tests/`).
 
 ### 2026-09-20 - 3dc853d
 Resolved scaffold inconsistencies: verified the shadcn `cn` package as the canonical class helper and removed oxlint in favor of eslint (`package.json`, `eslint.config.js`).
@@ -31,5 +31,56 @@ Resolved scaffold inconsistencies: verified the shadcn `cn` package as the canon
 ### 2026-09-20 - 3db4f32
 Docs checkpoint: caught up the AI handoff after the Phase 1.1 checkpoints (`AI_HANDOFF.md`).
 
-### 2026-09-20 - working tree
-Installed the `convex` package and configured a local dev deployment; installed Convex AI files and global Convex agent skills. No schema, functions, auth, or cloud linkage yet (`convex/`, `.env.example`).
+### 2026-09-20 - a2bea25
+Installed the project-local Convex hackathon skill and initialized this build log (`.agents/skills/convex-hackathon-skill/`, `hackathon.md`).
+
+### 2026-09-20 - d0f1000
+Installed the Convex capability skill set (including the Convex agent skill) with a `.claude/` mirror for editor compatibility. No schema, functions, auth, or cloud linkage yet (`.agents/skills/`, `.claude/skills/`).
+
+### 2026-09-20 - 504b311
+Added the environment template (`.env.example`, variable names only, no secrets) and the Convex-precedence section in `AGENTS.md`: Convex guidance wins on Convex-platform questions, Realtrail docs win on product, scope, security, and integration questions.
+
+### 2026-09-20 - ecf7bf7
+Docs checkpoint: AI handoff updated after the hackathon setup audit (`AI_HANDOFF.md`).
+
+### 2026-09-20 - 18fb13f
+Phase 1.2: initialized the Convex backend with the base schema (`users`, `workspaces`, `workspaceMembers`), error helpers, and a schema test; provisioned the cloud dev deployment in EU West (`utmost-stork-432`) (79c3aed). Handoff updated (18fb13f). Convex features: schema, tables, indexes (`convex/schema.ts`, `convex/lib/errors.ts`).
+
+### 2026-09-20 - d7974a1
+Reconciled `ARCHITECTURE.md` index strategy names with Convex convention (`ARCHITECTURE.md`).
+
+### 2026-09-20 - d86cb42
+Phase 1.3-A: added the Clerk auth structure — identity helpers plus workspace-membership and role authorization helpers — and wired ClerkProvider into the app entry (80db840). Handoff updated (d86cb42) (`convex/lib/auth.ts`, `convex/lib/authorization.ts`, `convex/auth.config.ts`, `src/main.tsx`).
+
+### 2026-09-20 - a80bfec
+Reconciled `ARCHITECTURE.md` data-model index names with Convex convention (`ARCHITECTURE.md`).
+
+### 2026-09-20 - 0dab3cf
+Phase 1.3-B: covered the auth and authorization helpers with tests (11 tests via convex-test identity simulation) and set the Clerk env vars on the deployment (746e0fd). Handoff updated (0dab3cf) (`convex/lib/auth.test.ts`, `convex/lib/authorization.test.ts`).
+
+### 2026-09-20 - 82200e8
+Phase 1.4-A: added `users.syncUser` (Clerk identity mirroring), `workspace.getCurrent`, and `workspace.create` (atomic workspace plus owner membership plus first property) with tests (suite total 27) (da572c3). Handoff updated (82200e8) (`convex/users.ts`, `convex/workspace.ts`). Convex features: queries, mutations.
+
+### 2026-09-20 - 1d9aaab
+Phase 1.4-B: built the frontend shell — routes (`/sign-in` through `/settings`), responsive AppShell with sidebar, protected-route guard, boot-time `users.syncUser`, and an onboarding form calling `workspace.create` (1b43385). Handoff updated (1d9aaab) (`src/routes/`, `src/components/layout/`, `src/hooks/useSyncUser.ts`). Convex features: realtime queries.
+
+### 2026-09-20 - 39a4b51
+Phase 2-A: documented the estate tables in `ARCHITECTURE.md` (bdc352a), then added `properties`, `buildings`, and `units` tables with indexes, atomic first-property creation inside `workspace.create`, and CRUD with cross-workspace IDOR enforcement (suite total 52) (6f6359c). Handoff updated (39a4b51) (`convex/schema.ts`, `convex/properties.ts`, `convex/buildings.ts`, `convex/units.ts`). Convex features: schema, tables, indexes, queries, mutations.
+
+### 2026-09-20 - 41aaafb
+Phase 2-B: extended onboarding to collect property name and address, and built the Properties screen (property, building, and unit drill-down with create and edit drawers) plus shared EmptyState, LoadingSkeleton, ErrorState, and StatusBadge components (d8bd404). Handoff updated (41aaafb) (`src/routes/Properties.tsx`, `src/routes/Onboarding.tsx`, `src/components/common/`). Convex features: realtime queries.
+
+### 2026-09-20 - 122a0cf
+Phase 3-A: documented the case tables in `ARCHITECTURE.md` (c67071a), then implemented the case domain — `cases`, `caseActivities`, and `caseCounters` tables, a pure state-machine helper enforcing the transition and role matrix, per-workspace monotonic case numbers, and create, update, assign, note, transition, close, and reopen mutations with list and get queries (case tests 78; suite total 136) (a4fd7f8). Handoff updated (122a0cf) (`convex/cases/`). Convex features: schema, tables, indexes, queries, mutations.
+
+### 2026-09-21 - e63dab8
+Phase 3-B-1: added the Cases screen (metrics strip, filters, desktop table with mobile cards, load-more pagination, New Case dialog) and a read-only Case Detail (header, issue section, activity timeline) (3af44b2). Handoff updated (e63dab8) (`src/routes/Cases.tsx`, `src/components/cases/`). Convex features: realtime queries.
+
+### 2026-09-21 - 6bd375d
+Phase 3-B-2: added the Case Detail action panel with contextual next action and six dialogs (edit, assign, status, note, close, reopen) wired to their mutations with toast feedback (e443176). Handoff updated (6bd375d) (`src/components/cases/CaseActionPanel.tsx`, `src/components/cases/dialogs/`). Convex features: realtime queries.
+
+### 2026-09-21 - d8a1cec
+Phase 4-A: added the `dashboard.get` query — metrics, capped attention and up-next lists, operations buckets, and denormalized recent activity, all workspace-scoped and bounded via indexes (fddadf6). Handoff updated (d8a1cec) (`convex/dashboard.ts`). Convex features: queries.
+
+### 2026-09-21 - a0d593c
+Phase 4-B: built the Overview dashboard UI — greeting header, attention card, metric cards, operations flow, up-next list, and recent-activity list, mobile-responsive with realtime updates (5a301ca). Handoff updated (a0d593c) (`src/routes/Overview.tsx`, `src/components/dashboard/`). Convex features: realtime queries. AgentMail, OpenAI, and Firecrawl integration is still pending (Phases 5-8); the live app is not deployed yet.
