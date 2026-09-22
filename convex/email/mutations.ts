@@ -1,8 +1,45 @@
 import { mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { requireUser } from "../lib/auth";
 import { requireResourceWorkspaceMembership } from "../lib/authorization";
 import { appError } from "../lib/errors";
+import { EMAIL_PATTERN } from "../cases/mutations";
+
+const MAX_SUBJECT_CHARS = 200;
+const MAX_BODY_CHARS = 10000;
+
+function validatedSubject(subject: string): string {
+  const trimmed = subject.trim();
+  if (trimmed === "" || trimmed.length > MAX_SUBJECT_CHARS) {
+    appError(
+      "VALIDATION_ERROR",
+      "Subject must be 1-200 characters.",
+      "subject",
+    );
+  }
+  return trimmed;
+}
+
+function validatedBody(textBody: string): string {
+  const trimmed = textBody.trim();
+  if (trimmed === "" || trimmed.length > MAX_BODY_CHARS) {
+    appError(
+      "VALIDATION_ERROR",
+      "Message body must be 1-10000 characters.",
+      "textBody",
+    );
+  }
+  return trimmed;
+}
+
+function validatedEmail(email: string): string {
+  const trimmed = email.trim();
+  if (!EMAIL_PATTERN.test(trimmed)) {
+    appError("VALIDATION_ERROR", "Invalid email address.", "recipientEmail");
+  }
+  return trimmed;
+}
 
 export const linkToCase = mutation({
   args: {
@@ -91,8 +128,7 @@ export const markRead = mutation({
   },
 });
 
-export const markThreadRead = mutation({
-  args: {
+export const markThreadRead = mutation({  args: {
     threadId: v.string(),
   },
   returns: v.object({ updated: v.number() }),
@@ -131,5 +167,174 @@ export const markThreadRead = mutation({
       updated += 1;
     }
     return { updated };
+  },
+});
+
+// Manual-draft path (Phase 8-A). The AI path (generateDraft) writes its
+// own draft row; this mutation covers manager-typed or pasted drafts.
+// Either way the row starts as status="draft" and nothing is sent until
+// approveSend — drafting and sending are separate mutations by design.
+export const createDraftRecord = mutation({
+  args: {
+    caseId: v.id("cases"),
+    recipientType: v.union(v.literal("resident"), v.literal("vendor")),
+    recipientEmail: v.string(),
+    subject: v.string(),
+    textBody: v.string(),
+    aiDraftSource: v.boolean(),
+  },
+  returns: v.object({ communicationId: v.id("communications") }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const record = await ctx.db.get("cases", args.caseId);
+    if (record === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    // Existence-hiding: a case outside the caller's workspace reads as
+    // NOT_FOUND, never FORBIDDEN (cases convention).
+    const membership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", record.workspaceId).eq("userId", user._id),
+      )
+      .unique();
+    if (membership === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    if (record.status === "CLOSED") {
+      appError("VALIDATION_ERROR", "Cannot draft for a closed case.");
+    }
+    const recipientEmail = validatedEmail(args.recipientEmail);
+    const subject = validatedSubject(args.subject);
+    const textBody = validatedBody(args.textBody);
+    const workspace = await ctx.db.get("workspaces", record.workspaceId);
+    const inboxId = workspace?.agentMailInboxId;
+    const inboxAddress = workspace?.agentMailInboxAddress;
+    if (inboxId === undefined || inboxAddress === undefined) {
+      appError("INTERNAL_ERROR", "Workspace has no AgentMail inbox.");
+    }
+    const now = Date.now();
+    const communicationId = await ctx.db.insert("communications", {
+      workspaceId: record.workspaceId,
+      caseId: record._id,
+      direction: "outbound",
+      participantType: args.recipientType,
+      agentMailInboxId: inboxId,
+      agentMailThreadId: "",
+      agentMailMessageId: undefined,
+      status: "draft",
+      fromEmail: inboxAddress,
+      toEmails: [recipientEmail],
+      subject,
+      textBody,
+      aiDraftSource: args.aiDraftSource,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      providerDraftId: undefined,
+      providerMessageId: undefined,
+      lastError: undefined,
+      readAt: undefined,
+      sendAttempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("caseActivities", {
+      workspaceId: record.workspaceId,
+      caseId: record._id,
+      type: args.aiDraftSource ? "DRAFT_GENERATED" : "DRAFT_CREATED",
+      actorType: "user",
+      actorUserId: user._id,
+      summary: `Draft created for ${recipientEmail}`,
+      metadata: {
+        communicationId,
+        recipientType: args.recipientType,
+        aiDraftSource: args.aiDraftSource,
+      },
+      createdAt: now,
+    });
+    return { communicationId };
+  },
+});
+
+// Human approval gate (Phase 8-A). The AI may draft; ONLY an
+// authenticated workspace member running this mutation authorizes the
+// send. It captures intent (draft → pending_send) and schedules the
+// worker — no external API call happens inside this mutation (AGENTS.md
+// §7). The status precondition is the double-send guard: the first
+// approval flips draft → pending_send, so a second approval observes a
+// non-draft row and fails CONFLICT instead of scheduling a second send.
+export const approveSend = mutation({
+  args: {
+    communicationId: v.id("communications"),
+    subject: v.optional(v.string()),
+    textBody: v.optional(v.string()),
+  },
+  returns: v.object({
+    communicationId: v.id("communications"),
+    status: v.literal("pending_send"),
+  }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const comm = await ctx.db.get("communications", args.communicationId);
+    if (comm === null) {
+      appError("NOT_FOUND", "Communication not found.");
+    }
+    const membership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", comm.workspaceId).eq("userId", user._id),
+      )
+      .unique();
+    if (membership === null) {
+      appError("NOT_FOUND", "Communication not found.");
+    }
+    if (comm.status !== "draft") {
+      appError(
+        "CONFLICT",
+        "Only drafts can be approved for sending.",
+      );
+    }
+    if (comm.direction !== "outbound") {
+      appError("VALIDATION_ERROR", "Only outbound drafts can be sent.");
+    }
+    if (comm.caseId === undefined) {
+      appError("VALIDATION_ERROR", "Draft is not linked to a case.");
+    }
+    const record = await ctx.db.get("cases", comm.caseId);
+    if (record === null || record.workspaceId !== comm.workspaceId) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    if (record.status === "CLOSED") {
+      appError("VALIDATION_ERROR", "Cannot send for a closed case.");
+    }
+    const subject =
+      args.subject !== undefined ? validatedSubject(args.subject) : comm.subject;
+    const textBody =
+      args.textBody !== undefined ? validatedBody(args.textBody) : comm.textBody;
+    const now = Date.now();
+    await ctx.db.patch("communications", comm._id, {
+      status: "pending_send",
+      approvedBy: user._id,
+      approvedAt: now,
+      updatedAt: now,
+      subject,
+      textBody,
+    });
+    await ctx.db.insert("caseActivities", {
+      workspaceId: comm.workspaceId,
+      caseId: record._id,
+      type: "DRAFT_APPROVED",
+      actorType: "user",
+      actorUserId: user._id,
+      summary: `Draft approved for sending to ${comm.toEmails[0] ?? "recipient"}`,
+      metadata: { communicationId: comm._id },
+      createdAt: now,
+    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.email.sendPendingCommunication.sendPendingCommunication,
+      { communicationId: comm._id },
+    );
+    return { communicationId: comm._id, status: "pending_send" as const };
   },
 });

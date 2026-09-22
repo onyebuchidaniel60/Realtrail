@@ -13,6 +13,7 @@ function makeBackend() {
 }
 
 type Backend = ReturnType<typeof makeBackend>;
+type Authed = ReturnType<Backend["withIdentity"]>;
 
 function identityFor(tag: string) {
   return {
@@ -352,5 +353,140 @@ describe("communications.getThread", () => {
       threadId: "thread_nonexistent",
     });
     expect(result).toEqual({ communications: [], linkedCase: null });
+  });
+});
+
+async function makeCase(
+  t: Backend,
+  tag: string,
+): Promise<{ authed: Authed; workspaceId: Id<"workspaces">; caseId: Id<"cases"> }> {
+  const { authed, workspaceId } = await makeWorkspace(t, tag);
+  const created = await authed.mutation(api.cases.mutations.createManual, {
+    title: "Leaking pipe",
+    description: "Kitchen pipe needs attention.",
+    category: "plumbing",
+    priority: "MEDIUM",
+  });
+  return { authed, workspaceId, caseId: created.caseId };
+}
+
+async function insertCaseDraft(
+  t: Backend,
+  workspaceId: Id<"workspaces">,
+  caseId: Id<"cases">,
+  createdAt: number,
+): Promise<Id<"communications">> {
+  return await t.run(async (ctx) =>
+    ctx.db.insert("communications", {
+      workspaceId,
+      caseId,
+      direction: "outbound",
+      participantType: "vendor",
+      agentMailInboxId: "inbox_case_1",
+      agentMailThreadId: "",
+      agentMailMessageId: undefined,
+      status: "draft",
+      fromEmail: "estate@example.com",
+      toEmails: ["vendor@example.com"],
+      subject: `Draft ${createdAt}`,
+      textBody: `Draft body ${createdAt}`,
+      aiDraftSource: true,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      providerDraftId: undefined,
+      providerMessageId: undefined,
+      lastError: undefined,
+      createdAt,
+      updatedAt: createdAt,
+    }),
+  );
+}
+
+describe("communications.listByCase", () => {
+  test("returns only that case's rows, oldest first, without provider ids", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "casehist");
+    const other = await authed.mutation(api.cases.mutations.createManual, {
+      title: "Second issue",
+      description: "Another problem.",
+      category: "electrical",
+      priority: "LOW",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 2000,
+      caseId,
+      threadId: "thread_case_1",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 1000,
+      caseId,
+      threadId: "thread_case_1",
+    });
+    await insertCommunication(t, workspaceId, {
+      createdAt: 3000,
+      caseId: other.caseId,
+      threadId: "thread_other",
+    });
+    const result = await authed.query(api.email.queries.listByCase, {
+      caseId,
+    });
+    expect(result).toHaveLength(2);
+    expect(result[0].createdAt).toBe(1000);
+    expect(result[1].createdAt).toBe(2000);
+    expect(result[0]).toMatchObject({
+      direction: "inbound",
+      status: "received",
+      fromEmail: "resident@example.com",
+      toEmails: ["estate@example.com"],
+      participantType: "other",
+      aiDraftSource: false,
+    });
+    // No provider internals leave the query.
+    for (const row of result) {
+      expect(row).not.toHaveProperty("agentMailThreadId");
+      expect(row).not.toHaveProperty("agentMailMessageId");
+      expect(row).not.toHaveProperty("providerMessageId");
+      expect(row).not.toHaveProperty("providerDraftId");
+    }
+  });
+
+  test("includes drafts with approval state", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "casedraft");
+    await insertCaseDraft(t, workspaceId, caseId, 1000);
+    const result = await authed.query(api.email.queries.listByCase, {
+      caseId,
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      direction: "outbound",
+      status: "draft",
+      aiDraftSource: true,
+      toEmails: ["vendor@example.com"],
+    });
+    expect(result[0].approvedBy).toBeUndefined();
+    expect(result[0].approvedAt).toBeUndefined();
+  });
+
+  test("rejects a cross-workspace caseId with NOT_FOUND", async () => {
+    const t = makeBackend();
+    const a = await makeCase(t, "hist-a");
+    const b = await makeCase(t, "hist-b");
+    await insertCommunication(t, b.workspaceId, {
+      createdAt: 1000,
+      caseId: b.caseId,
+    });
+    await expect(
+      a.authed.query(api.email.queries.listByCase, { caseId: b.caseId }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+
+  test("rejects a missing case with NOT_FOUND", async () => {
+    const t = makeBackend();
+    const { authed, caseId } = await makeCase(t, "histgone");
+    await t.run(async (ctx) => ctx.db.delete("cases", caseId));
+    await expect(
+      authed.query(api.email.queries.listByCase, { caseId }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 });

@@ -295,3 +295,264 @@ describe("communications.markRead", () => {
     expect((await readCommunication(t, other))?.readAt).toBeUndefined();
   });
 });
+
+async function ensureInbox(t: Backend, workspaceId: Id<"workspaces">) {
+  await t.run(async (ctx) =>
+    ctx.db.patch("workspaces", workspaceId, {
+      agentMailInboxId: `inbox_appr_${workspaceId.slice(-6)}`,
+      agentMailInboxAddress: "estate@example.com",
+    }),
+  );
+}
+
+async function insertDraft(
+  t: Backend,
+  workspaceId: Id<"workspaces">,
+  caseId: Id<"cases">,
+  overrides: {
+    status?: "draft" | "pending_send" | "sending" | "sent";
+    direction?: "inbound" | "outbound";
+  } = {},
+): Promise<Id<"communications">> {
+  return await t.run(async (ctx) =>
+    ctx.db.insert("communications", {
+      workspaceId,
+      caseId,
+      direction: overrides.direction ?? "outbound",
+      participantType: "vendor",
+      agentMailInboxId: "inbox_appr_1",
+      agentMailThreadId: "",
+      agentMailMessageId: undefined,
+      status: overrides.status ?? "draft",
+      fromEmail: "estate@example.com",
+      toEmails: ["vendor@example.com"],
+      subject: "Quote request",
+      textBody: "Please quote.",
+      aiDraftSource: true,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      providerDraftId: undefined,
+      providerMessageId: undefined,
+      lastError: undefined,
+      readAt: undefined,
+      sendAttempts: 0,
+      createdAt: 1_757_772_000_000,
+      updatedAt: 1_757_772_000_000,
+    }),
+  );
+}
+
+describe("communications.createDraftRecord", () => {
+  test("inserts an addressed draft with a DRAFT_CREATED activity", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "manual");
+    await ensureInbox(t, workspaceId);
+    const { communicationId } = await authed.mutation(
+      api.email.mutations.createDraftRecord,
+      {
+        caseId,
+        recipientType: "vendor",
+        recipientEmail: "vendor@example.com",
+        subject: "Pump repair",
+        textBody: "Please quote for the repair.",
+        aiDraftSource: false,
+      },
+    );
+    const comm = await readCommunication(t, communicationId);
+    expect(comm).toMatchObject({
+      workspaceId,
+      caseId,
+      direction: "outbound",
+      participantType: "vendor",
+      status: "draft",
+      fromEmail: "estate@example.com",
+      toEmails: ["vendor@example.com"],
+      aiDraftSource: false,
+    });
+    expect(comm?.agentMailInboxId).toMatch(/^inbox_appr_/);
+    const activities = await activitiesForCase(t, caseId);
+    expect(
+      activities.filter((a) => a.type === "DRAFT_CREATED"),
+    ).toHaveLength(1);
+  });
+
+  test("marks AI-sourced drafts as DRAFT_GENERATED", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "aigen");
+    await ensureInbox(t, workspaceId);
+    await authed.mutation(api.email.mutations.createDraftRecord, {
+      caseId,
+      recipientType: "resident",
+      recipientEmail: "resident@example.com",
+      subject: "Status update",
+      textBody: "Work is scheduled.",
+      aiDraftSource: true,
+    });
+    const activities = await activitiesForCase(t, caseId);
+    expect(
+      activities.filter((a) => a.type === "DRAFT_GENERATED"),
+    ).toHaveLength(1);
+  });
+
+  test("rejects a cross-workspace caseId with NOT_FOUND", async () => {
+    const t = makeBackend();
+    const a = await makeCase(t, "draft-a");
+    const b = await makeCase(t, "draft-b");
+    await ensureInbox(t, a.workspaceId);
+    await expect(
+      a.authed.mutation(api.email.mutations.createDraftRecord, {
+        caseId: b.caseId,
+        recipientType: "vendor",
+        recipientEmail: "vendor@example.com",
+        subject: "Hi",
+        textBody: "Hello.",
+        aiDraftSource: false,
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+
+  test("rejects drafts for a closed case", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "draftclosed");
+    await ensureInbox(t, workspaceId);
+    await t.run(async (ctx) =>
+      ctx.db.patch("cases", caseId, { status: "CLOSED" }),
+    );
+    await expect(
+      authed.mutation(api.email.mutations.createDraftRecord, {
+        caseId,
+        recipientType: "vendor",
+        recipientEmail: "vendor@example.com",
+        subject: "Hi",
+        textBody: "Hello.",
+        aiDraftSource: false,
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  test("rejects an invalid recipient email", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "badrcpt");
+    await ensureInbox(t, workspaceId);
+    await expect(
+      authed.mutation(api.email.mutations.createDraftRecord, {
+        caseId,
+        recipientType: "vendor",
+        recipientEmail: "not-an-email",
+        subject: "Hi",
+        textBody: "Hello.",
+        aiDraftSource: false,
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  test("rejects an overlong subject", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "longsubj");
+    await ensureInbox(t, workspaceId);
+    await expect(
+      authed.mutation(api.email.mutations.createDraftRecord, {
+        caseId,
+        recipientType: "vendor",
+        recipientEmail: "vendor@example.com",
+        subject: "x".repeat(201),
+        textBody: "Hello.",
+        aiDraftSource: false,
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+});
+
+describe("communications.approveSend", () => {
+  test("marks a draft pending_send with approver and activity", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "approve");
+    const communicationId = await insertDraft(t, workspaceId, caseId);
+    const result = await authed.mutation(api.email.mutations.approveSend, {
+      communicationId,
+    });
+    expect(result).toEqual({ communicationId, status: "pending_send" });
+    const comm = await readCommunication(t, communicationId);
+    expect(comm?.status).toBe("pending_send");
+    expect(comm?.approvedAt).toBeDefined();
+    expect(comm?.approvedBy).toBeDefined();
+    const activities = await activitiesForCase(t, caseId);
+    const approved = activities.filter((a) => a.type === "DRAFT_APPROVED");
+    expect(approved).toHaveLength(1);
+    expect(approved[0].actorType).toBe("user");
+  });
+
+  test("stores manager edits to subject and body", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "edit");
+    const communicationId = await insertDraft(t, workspaceId, caseId);
+    await authed.mutation(api.email.mutations.approveSend, {
+      communicationId,
+      subject: "Revised subject",
+      textBody: "Revised body with a confirmed detail.",
+    });
+    const comm = await readCommunication(t, communicationId);
+    expect(comm?.subject).toBe("Revised subject");
+    expect(comm?.textBody).toBe("Revised body with a confirmed detail.");
+  });
+
+  test("rejects a second approval with CONFLICT (double-send guard)", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "double");
+    const communicationId = await insertDraft(t, workspaceId, caseId);
+    await authed.mutation(api.email.mutations.approveSend, {
+      communicationId,
+    });
+    await expect(
+      authed.mutation(api.email.mutations.approveSend, { communicationId }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+    const activities = await activitiesForCase(t, caseId);
+    expect(
+      activities.filter((a) => a.type === "DRAFT_APPROVED"),
+    ).toHaveLength(1);
+  });
+
+  test("rejects approving a non-draft row", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "nondraft");
+    const communicationId = await insertDraft(t, workspaceId, caseId, {
+      status: "sent",
+    });
+    await expect(
+      authed.mutation(api.email.mutations.approveSend, { communicationId }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+  });
+
+  test("rejects approval for an inbound communication", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "inbound");
+    const communicationId = await insertDraft(t, workspaceId, caseId, {
+      direction: "inbound",
+    });
+    await expect(
+      authed.mutation(api.email.mutations.approveSend, { communicationId }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  test("rejects approval when the case is CLOSED", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "apprclosed");
+    const communicationId = await insertDraft(t, workspaceId, caseId);
+    await t.run(async (ctx) =>
+      ctx.db.patch("cases", caseId, { status: "CLOSED" }),
+    );
+    await expect(
+      authed.mutation(api.email.mutations.approveSend, { communicationId }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
+  });
+
+  test("rejects a cross-workspace communication with NOT_FOUND", async () => {
+    const t = makeBackend();
+    const a = await makeCase(t, "appr-a");
+    const b = await makeCase(t, "appr-b");
+    const communicationId = await insertDraft(t, b.workspaceId, b.caseId);
+    await expect(
+      a.authed.mutation(api.email.mutations.approveSend, { communicationId }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+});

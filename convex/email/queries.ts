@@ -318,3 +318,75 @@ export const getThread = query({
     };
   },
 });
+
+// Case-scoped communication history (Phase 8-A). Case Detail uses this
+// in Phase 8-C to render drafts, pending sends, and sent mail alongside
+// the timeline. Provider IDs are deliberately excluded: the UI needs
+// operational state, never provider internals.
+export const listByCase = query({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("communications"),
+      direction: directionValidator,
+      status: statusValidator,
+      fromEmail: v.string(),
+      toEmails: v.array(v.string()),
+      subject: v.string(),
+      textBody: v.string(),
+      aiDraftSource: v.boolean(),
+      approvedBy: v.optional(v.id("users")),
+      approvedAt: v.optional(v.number()),
+      createdAt: v.number(),
+      readAt: v.optional(v.number()),
+      lastError: v.optional(v.string()),
+      participantType: participantTypeValidator,
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const record = await ctx.db.get("cases", args.caseId);
+    if (record === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    // Existence-hiding (cases convention): no membership reads as
+    // NOT_FOUND, never FORBIDDEN.
+    const membership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", record.workspaceId).eq("userId", user._id),
+      )
+      .unique();
+    if (membership === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    const rows = await ctx.db
+      .query("communications")
+      .withIndex("by_caseId", (q) => q.eq("caseId", record._id))
+      .collect();
+    // Chronological: oldest first, creation-time tiebreak. A case's
+    // communication history is bounded in MVP, so an in-memory sort of
+    // the collected page is acceptable (same approach as getThread).
+    rows.sort(
+      (a, b) => a.createdAt - b.createdAt || a._creationTime - b._creationTime,
+    );
+    return rows.map((row) => ({
+      _id: row._id,
+      direction: row.direction,
+      status: row.status,
+      fromEmail: row.fromEmail,
+      toEmails: row.toEmails,
+      subject: row.subject,
+      textBody: row.textBody,
+      aiDraftSource: row.aiDraftSource,
+      approvedBy: row.approvedBy,
+      approvedAt: row.approvedAt,
+      createdAt: row.createdAt,
+      readAt: row.readAt,
+      lastError: row.lastError,
+      participantType: row.participantType,
+    }));
+  },
+});

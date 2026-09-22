@@ -219,7 +219,13 @@ export const generateDraft = internalAction({
     instructions: v.optional(v.string()),
   },
   returns: v.object({ communicationId: v.id("communications") }),
-  handler: async (ctx, args) => {
+  // Explicit handler return type: breaks the api.d.ts inference cycle for
+  // same-file internal.* calls (same reason triageInbound annotates its
+  // return — without this, generateDraft collapses to any).
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ communicationId: Id<"communications"> }> => {
     const context: {
       record: Doc<"cases">;
       workspace: Doc<"workspaces">;
