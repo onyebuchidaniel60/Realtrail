@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 10 — Reminder and Attention System (complete).**
+**Phase 11 — Supporting Screens Polish (complete).**
 
 ---
 
@@ -187,6 +187,7 @@ Application implementation (in progress):
 - Phase 9-B: Public GET/POST /confirm on the existing httpRouter (webhook untouched). GET renders the Yes/No page for well-formed tokens without touching the database (missing/malformed → invalid-link page, still 200). POST validates form shape + token pattern, consumes via the internal mutation, renders byte-identical generic pages for every failure (unknown/expired/used/conflict/malformed share one template). Headers: no-referrer, no-store (+no-cache on POST), nosniff, strict CSP, no scripts. Raw tokens never logged (code-level warn only), never stored, never echoed after consumption. Test count: 566 (was 547; +19).
 - Phase 9-C/9-D: Manager confirmation UI + live click verification. getConfirmationState read projection (pending timestamps, last decision; NOT_FOUND hiding). ConfirmationPanel (request/resend with ConfirmDialog, pending state, resolved blocks; never renders token or URL). Mounted in the Case Detail action rail; timeline icons + labels for the three confirmation events. Live end-to-end on eu-west-dev: real requestConfirmation to the operator-supplied mailbox, operator clicked Yes with no browser warnings, case reached RESOLVED with resolvedBy "resident", exactly one CONFIRMATION_CONFIRMED, zero reuse, zero send_uncertain. Test count: 587 (was 566; +21).
 - Phase 10: Reminder and Attention System. Pure reminders helper (env-driven 4/24/72h cadence, deterministic dedupe keys, due predicates). notifications table with dedupeKey index + case scheduling markers. Resident chain (cycles at 1×/2× reminder delay, escalation at escalation delay) and vendor follow-up actions — notification-only, state re-checked, dedupe-idempotent. Hooks: requestConfirmation arms 3 cycles; vendor send arms follow-up on VENDOR_CONTACTED. Read surface (list/unreadCount/markRead/markAllRead capped at 200). Dashboard: env thresholds, failed/uncertain attention trigger (one per case), unreadNotifications count. Sidebar badge + drawer (no route). Test count: 631 (was 587; +44).
+- Phase 11: Supporting Screens Polish. Settings backend (convex/workspace/settings.ts: getSettings with presence-only integration enums + owner-only updateWorkspace reusing the extracted workspace validators) and Settings UI (workspace edit, six integration rows, account with Clerk sign-out; no env names/values rendered). Properties inventory: only gap was the missing query-error state — wrapped in QueryErrorBoundary + ErrorState. Vendors inventory: added "Open related cases" (router-state vendor filter honored client-side in Cases.tsx; no URL persistence, no backend change; sorting left server-side-only by design). Admin cleanup (convex/admin/cleanup.ts: token-gated internalMutation, 5000-row cap, users table untouched) with 5 tests; live run DEFERRED — REALTRAIL_ADMIN_CLEANUP_TOKEN is not set on the deployment and must not be set by the agent. Smoke workspace jd730jjct6kj4dyq27rwccfc0x8ety58 still present. Test count: 665 (was 631; +34: settings backend 12, settings UI 11, properties 1, vendors 2, cases 3, cleanup 5).
 
 ---
 
@@ -445,6 +446,20 @@ convex/notifications/mutations.ts
 src/components/notifications/*
 ```
 
+Phase 11 settings, polish, and cleanup:
+
+```text
+convex/workspace/settings.ts (getSettings, updateWorkspace)
+convex/workspace/validation.ts (shared validators, also used by workspace.create)
+convex/admin/cleanup.ts (token-gated internal deleteWorkspace)
+src/components/settings/IntegrationStatusRow.tsx
+```
+
+`src/routes/Settings.tsx` was rewritten from placeholder to the full
+settings screen. `src/routes/Cases.tsx` gained a router-state vendor
+filter; `src/routes/Vendors.tsx` and `VendorCard.tsx` gained the
+"Open related cases" path.
+
 convex/http.ts now hosts three routes: POST /webhooks/agentmail, GET /confirm, POST /confirm.
 
 Recommended application structure:
@@ -613,6 +628,11 @@ Watch especially:
 - markAllRead caps at 200 unread. Add a batched implementation only if a real workspace exceeds that.
 - Sidebar badge uses notifications.unreadCount; do not cache client-side.
 - The old dashboard.get hardcoded 4h/24h thresholds are now env-driven. Note this for regression checks if reminders look wrong.
+- Phase 11 guardrails: getSettings returns only integration enums — never env names, values, or partial values. Do not change this contract.
+- Phase 11 guardrails: updateWorkspace is owner-only. Managers CANNOT change workspace settings (PROJECT_SPEC §1.6). Do not relax without a spec change.
+- Phase 11 guardrails: no workspace deletion UI. deleteWorkspace is internal-only, requires REALTRAIL_ADMIN_CLEANUP_TOKEN. Never wire to client.
+- Phase 11 guardrails: smoke workspace jd730jjct… still present — cleanup deferred (token not set on the deployment; the agent must not set it).
+- Phase 11 guardrails: integration status is presence-only. No live probe in MVP.
 - Deployment env (corrected 9-D — earlier notes implied these were set; they were not): PUBLIC_APP_URL is REQUIRED and was set on eu-west-dev during 9-D (value: the deployment's public convex.site host; never write it here). REALTRAIL_CONFIRMATION_TOKEN_TTL_HOURS is OPTIONAL with a 72h code fallback (still unset — fallback applies). The Phase 10 reminder vars (REALTRAIL_VENDOR_FOLLOWUP_HOURS, REALTRAIL_RESIDENT_REMINDER_HOURS, REALTRAIL_ESCALATION_HOURS) are OPTIONAL with code fallbacks; dashboard.get still hardcodes 4h/24h until Phase 10 reads them. Set them before Phase 10 verification or the fallback behavior is what ships.
 
 ---
@@ -636,4 +656,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 11 — Properties / Vendors / Settings Polish.**
+**Phase 12 — Responsive UX and Accessibility Pass.**
