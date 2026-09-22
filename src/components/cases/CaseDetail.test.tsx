@@ -286,7 +286,9 @@ describe("CaseDetail", () => {
     const contactButton = within(section as HTMLElement).getByRole("button", {
       name: "Contact vendor",
     });
-    expect(contactButton).toBeDisabled();
+    // Phase 8-C: the placeholder-disabled button is now live — enabled
+    // whenever a vendor is linked and the case is open.
+    expect(contactButton).not.toBeDisabled();
   });
 
   it("opens the discovery drawer from Find a vendor", async () => {
