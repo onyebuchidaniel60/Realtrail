@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 6 — AI Triage (in progress). 6-A, 6-A-correction, 6-A-routing, 6-B complete. 6-C pending (AI review UI).**
+**Phase 6 — AI Triage (complete). Phase 7 (Vendor discovery) pending.**
 
 ---
 
@@ -176,6 +176,7 @@ Application implementation (in progress):
 - Phase 6-A-correction: OpenAI wrapper is now provider-neutral via OPENAI_BASE_URL. OpenRouter is supported (adds HTTP-Referer, X-OpenRouter-Title headers and require_parameters: true when the base URL is openrouter.ai). Vitest maxWorkers pinned to 1 for deterministic full-suite runs.
 - Phase 6-A-routing: OpenRouter requests now include a provider object pinning routing to azure/swedencentral with allow_fallbacks: false and require_parameters: true. Fixed the previous misplacement of require_parameters (was top-level, now inside provider per OpenRouter's API shape).
 - Phase 6-B: Live OpenRouter wiring verified end-to-end. Human set OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_TRIAGE_MODEL, OPENAI_DRAFT_MODEL on the deployment. Isolated wrapper probe authenticated and returned valid structured output via Azure Sweden Central. Real inbound email triaged first-try: inboundEvents processed, communications marked triaged, case created NEW/completed/v1 with AI_TRIAGE_COMPLETED activity. No code changes (docs only).
+- Phase 6-C: AI Summary card in Case Detail (renders when aiTriageStatus is completed, pending, failed, or not_started). Review triage sheet with editable fields and "AI suggested" hints. acceptAiTriage mutation wired. CaseActionPanel primary action for NEW cases now opens the review sheet. Plain-text rendering enforced — AI output never renders as HTML. Test count: 346.
 
 ---
 
@@ -365,6 +366,13 @@ convex/email/triage.ts
 convex/cases/triage.ts
 ```
 
+Phase 6-C review UI:
+
+```text
+src/components/cases/AISummaryCard.tsx
+src/components/cases/ReviewTriageSheet.tsx
+```
+
 Recommended application structure:
 
 ```text
@@ -481,6 +489,9 @@ Watch especially:
 - Provider slug "azure/swedencentral" was verified against OpenRouter's UI by the human. If OpenRouter renames the slug, requests will fail; re-verify at https://openrouter.ai/openai/gpt-4o-mini.
 - Live OpenRouter credentials set on the Convex deployment (by the human, not the agent). If triage stops working, first check OpenRouter credits (402) and provider availability (azure/swedencentral).
 - Provider routing has allow_fallbacks: false. If Azure Sweden Central is unavailable, triage fails and retries up to 3 times.
+- AI output is rendered as plain text only. Never use dangerouslySetInnerHTML for AI-generated content. This is a security requirement (§16 in ARCHITECTURE.md).
+- The "AI suggested" hints are advisory. Accepting triage replaces AI values with the human-edited form values — the original aiTriageOutput is preserved on the case for audit.
+- Known infrastructure flake: test:once intermittently fails on frontend userEvent tests at maxWorkers: 1 (documented from Phase 6-B). Investigation queued as a follow-up task. Not a code regression.
 
 ---
 
@@ -503,4 +514,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 6-C — AI review UI. Scope: AI Summary card in Case Detail when aiTriageStatus is completed; 'Review triage' sheet with editable fields; acceptAiTriage mutation; wire the CaseActionPanel primary action for NEW cases to open the review sheet.**
+**Phase 7-A — Vendor discovery backend. Scope: vendors, vendorResearch, vendorResearchResults tables; Firecrawl client wrapper; vendors.discover action; vendors.save mutation; vendors.list query. Firecrawl API key required (human step in Phase 7-B).**
