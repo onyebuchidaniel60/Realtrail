@@ -51,13 +51,19 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-// Realtrail brand palette (Phase 12). Warm off-white surfaces, white
-// cards, deep-lavender primary, lime/warm-yellow/red reserved for status
-// semantics, near-black primary buttons. Every text/background pair was
-// checked with a contrast script before shipping — ratios noted below.
-// Any color change must preserve WCAG AA (4.5:1 body text, 3:1 large
-// text and UI indicators). Tailwind v4 CSS-first: do NOT reintroduce
-// tailwind.config.js or postcss.config.js.
+/* Realtrail brand palette (Phase 12). Warm off-white surfaces, white
+   cards, deep-lavender primary, lime/warm-yellow/red reserved for status
+   semantics, near-black primary buttons. Every text/background pair was
+   checked with a contrast script before shipping — ratios noted below.
+   Any color change must preserve WCAG AA (4.5:1 body text, 3:1 large
+   text and UI indicators). Tailwind v4 CSS-first: do NOT reintroduce
+   tailwind.config.js or postcss.config.js.
+
+   Comment style matters: Lightning CSS does not treat "//" as a comment.
+   A "//" line here is parsed as part of the next selector, which makes the
+   selector invalid ("Invalid empty selector") and Tailwind then silently
+   drops the whole :root rule while the build still exits 0. Always use
+   block comments in this file, and grep the built CSS after editing. */
 :root {
     --background: #FAF8F3;
     --foreground: #1A1A1A; /* 16.4:1 on background */
