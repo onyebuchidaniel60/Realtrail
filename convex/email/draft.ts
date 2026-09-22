@@ -313,28 +313,23 @@ export const generateDraft = internalAction({
         false,
       );
     }
-    let draft: EmailDraft;
-    try {
-      draft = await draftMessage({
-        apiKey,
-        model,
-        input: {
-          caseTitle: context.record.title,
-          caseDescription: context.record.description,
-          caseCategory: context.record.category,
-          casePriority: context.record.priority,
-          propertyName: context.propertyName ?? undefined,
-          recipientType: args.recipientType,
-          recipientName,
-          managerInstructions: args.instructions,
-          priorMessages: context.priorMessages,
-        },
-      });
-    } catch (error) {
-      // No partial state: nothing has been written yet, so any provider
-      // or model error propagates with its code and persists nothing.
-      throw error;
-    }
+    // No partial state: nothing has been written yet, so any provider
+    // or model error propagates with its code and persists nothing.
+    const draft: EmailDraft = await draftMessage({
+      apiKey,
+      model,
+      input: {
+        caseTitle: context.record.title,
+        caseDescription: context.record.description,
+        caseCategory: context.record.category,
+        casePriority: context.record.priority,
+        propertyName: context.propertyName ?? undefined,
+        recipientType: args.recipientType,
+        recipientName,
+        managerInstructions: args.instructions,
+        priorMessages: context.priorMessages,
+      },
+    });
     const { communicationId } = await ctx.runMutation(
       internal.email.draft.insertDraftCommunication,
       {

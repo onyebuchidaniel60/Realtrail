@@ -24,7 +24,7 @@ function mockFetchJson(
 ) {
   const ok = init.ok ?? true;
   const status = init.status ?? (ok ? 200 : 500);
-  return vi.fn(async (_url: string, _init: RequestInit) => ({
+  return vi.fn(async () => ({
     ok,
     status,
     json: async (): Promise<unknown> => body,
