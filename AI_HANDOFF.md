@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 7 — Vendor Discovery (complete). Phase 8 (AI drafting + AgentMail sending) pending.**
+**Phase 8 — AI Drafting and AgentMail Sending (in progress). Sub-task 8-A complete (backend). 8-B pending (live send verification, human step). 8-C pending (draft UI).**
 
 ---
 
@@ -180,6 +180,7 @@ Application implementation (in progress):
 - Phase 7-A: Added vendors, vendorResearch, vendorResearchResults tables. Firecrawl client wrapper (search + scrape) with test seams. Deterministic query construction (no internal case data leaked). Deterministic rank bands (no numeric scoring). Contact extraction from scraped markdown. vendors.discover action with 60s per-case rate limit. vendors.save, vendors.update, vendors.list queries/mutations. vendorResearch.getResearch query. All tests use mocked Firecrawl. Test count: 403.
 - Phase 7-B: Live Firecrawl wired. FIRECRAWL_API_KEY set as Convex env var (by human). End-to-end discovery verified against a real case: search query constructed from category + locality, results normalized with rank bands, contact info extracted where available. No internal case data leaked to Firecrawl.
 - Phase 7-C: Vendors screen (table/cards, search, category filter, add/edit drawer). Vendor section in Case Detail (vendor card, link/unlink). Discovery drawer with refinement input, rank-banded result cards, evidence snippets, save-to-vendors action, and automatic case linkage via cases.setVendor. Added case.vendorId field + setVendor mutation + cases.get vendor summary. Test count: 435.
+- Phase 8-A: Outbound drafting + send backend (no UI, no live sends — all provider calls mocked). sendMessage wired in the AgentMail wrapper (POST /v0/inboxes/{id}/messages/send, Bearer, 30s timeout, clientId sent as the Idempotency-Key header per current docs; timeout/malformed-200 map to uncertain errors via isUncertainSendError). Draft prompt module with injection defenses (untrusted_thread delimiters) and do-not-invent rules. draftEmail in the OpenAI wrapper (strict {subject, textBody} schema, model from OPENAI_DRAFT_MODEL). ai.generateDraft internalAction (vendor recipient resolves to stored vendor email; resident recipient validated; prior 5 messages as context; persists draft + DRAFT_GENERATED activity; never sends). communications.createDraftRecord (manual-draft path, DRAFT_CREATED/DRAFT_GENERATED). communications.approveSend (human gate: draft-only CONFLICT guard, closed-case rejection, schedules the worker, no provider call inside). email.sendPendingCommunication worker (pending_send → sending claim → sent with provider ids + EMAIL_SENT; 429/5xx retry 3x at 60s; 4xx/config fail fast; timeout/unknown → send_uncertain with no auto-retry). listByCase query (chronological, no provider IDs). Added sendAttempts to communications. Test count: 492 (was 435; +57).
 
 ---
 
@@ -397,6 +398,14 @@ src/components/vendors/RankBadge.tsx
 src/components/cases/VendorDiscoveryDrawer.tsx
 ```
 
+Phase 8-A outbound drafting backend:
+
+```text
+convex/email/draft.ts
+convex/email/sendPendingCommunication.ts
+convex/lib/providers/draftPrompt.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -527,6 +536,12 @@ Watch especially:
 - Case Detail vendor card's "Contact vendor" button is a Phase 8 placeholder. Do not implement outbound sending here.
 - Live Firecrawl credentials set on the Convex deployment. If discovery stops working, check Firecrawl credits and API status first.
 - Discovery is capped at 3 scraped results per run (rate limit + scraper time). If more results are needed, this is a future enhancement.
+- AI drafts, human approves, worker sends: generateDraft and createDraftRecord can only ever produce status="draft" rows. Only approveSend (authenticated member) moves a draft to pending_send, and only the send worker calls the provider. There is no code path from model output to a sent email.
+- Outbound send idempotency is layered: approveSend's draft-only CONFLICT guard (one schedule per approval), the worker's transactional pending_send → sending claim (duplicate workers return "skipped"), the stable Idempotency-Key header (communication id, so provider retries replay instead of duplicating), and no auto-retry on unknown outcomes.
+- send_uncertain is terminal for automation: timeouts, unreadable 200 bodies, and unexpected throws mark the row send_uncertain with a redacted lastError and an EMAIL_SEND_UNCERTAIN activity. A manager must resolve it (Phase 12 UI). Never auto-retry uncertain sends.
+- generateDraft is internal-only with no caller identity: vendor references are workspace-checked server-side, but the caseId is trusted from the internal caller. The Phase 8-C public wrapper must enforce membership (NOT_FOUND on mismatch) before calling it.
+- Same-file ctx.runQuery/runMutation calls need care with api.d.ts inference: the ACTION HANDLER needs an explicit return type annotation (triageInbound pattern). Annotating only the result binding is not enough — without it, the whole module collapses to any (TS7022) and cascades into src/ implicit-any errors.
+- npm run lint is red at HEAD for pre-existing reasons (unused _url/_init params in firecrawl/openai test mocks, no-control-regex in vendorSearch.test.ts, react-refresh export in CategoryMultiSelect.tsx). Phase 8-A files are lint-clean. Do not "fix" those files without an explicit task — report lint as red-with-pre-existing-errors until one lands.
 
 ---
 
@@ -549,4 +564,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 8-A — AI drafting backend. Scope: ai.generateDraft action (recipient-aware: vendor vs resident), communications.createDraftRecord + communications.approveSend mutations, email.sendPendingCommunication internal action using the AgentMail wrapper's sendMessage, provider draft identity, communication status lifecycle, provider failure handling, tests with mocked AgentMail send.**
+**Phase 8-B — live send verification. Human provides a target email address (their own mailbox). Agent sends a real email via the pipeline, verifies arrival, verifies the communication transitions through pending_send → sending → sent.**
