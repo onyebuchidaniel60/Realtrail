@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** OpenAI Responses API for triage and drafts (model ids via OPENAI_TRIAGE_MODEL / OPENAI_DRAFT_MODEL)
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T11:49:25Z
+- **Last updated:** 2026-09-22T13:16:28Z
 
 ## Log
 
@@ -138,3 +138,6 @@ Phase 9 complete: signed one-time resident confirmation link plus the manager re
 
 ### 2026-09-22 - 61dd06e
 Phase 10: real operational reminders delivered as in-app notifications. Vendor follow-ups fire after silent outbound mail, resident nudges and escalation follow the confirmation chain, all dedupe-safe and state re-checked; the dashboard attention surface now consumes delivery failures and unread counts, with a sidebar badge and drawer. Covered with 44 new tests (suite total 631). Convex features: queries, mutations, actions, scheduled functions (`convex/notifications/`, `convex/lib/reminders.ts`). Handoff updated (61dd06e).
+
+### 2026-09-22 - b8eb6d7
+Phase 11: supporting screens polish. The settings screen now edits workspace name, timezone, and currency (owner-only), shows presence-only integration health with the workspace intake address, and signs out from the account section — no secret names or values rendered. The properties screen gained a query-error state; vendors gained "Open related cases", filtering the cases queue through router state with no URL persistence. A token-gated internal workspace cleanup mutation landed with tests; the live smoke-workspace run stays deferred until the admin token exists. Covered with 34 new tests (suite total 665). Convex features: queries, mutations (`convex/workspace/settings.ts`, `convex/admin/cleanup.ts`, `src/routes/Settings.tsx`). Handoff updated (b8eb6d7).
