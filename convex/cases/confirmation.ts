@@ -1,4 +1,9 @@
-import { internalMutation, mutation } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { requireUser } from "../lib/auth";
@@ -291,4 +296,127 @@ export const consumeConfirmation = internalMutation({
 // transaction. The loser observes usedAt set by the winner and throws
 // TOKEN_USED. No separate lock — the usedAt check inside the transaction
 // IS the mutual exclusion.
+
+export const getPendingConfirmation = internalQuery({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      tokenId: v.id("confirmationTokens"),
+      requestedAt: v.number(),
+      expiresAt: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const tokens = await ctx.db
+      .query("confirmationTokens")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .collect();
+    const now = Date.now();
+    let latest: {
+      tokenId: (typeof tokens)[number]["_id"];
+      requestedAt: number;
+      expiresAt: number;
+    } | null = null;
+    for (const token of tokens) {
+      if (token.usedAt !== undefined || token.expiresAt <= now) {
+        continue;
+      }
+      if (latest === null || token.createdAt > latest.requestedAt) {
+        latest = {
+          tokenId: token._id,
+          requestedAt: token.createdAt,
+          expiresAt: token.expiresAt,
+        };
+      }
+    }
+    // Never the raw token, never the hash — only the row id and times.
+    return latest;
+  },
+});
+
+// Manager-facing read projection (Phase 9-C). case.status stays
+// authoritative; this only describes the token layer beneath it. No
+// token material of any kind leaves this query.
+export const getConfirmationState = query({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.object({
+    requested: v.boolean(),
+    requestedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    lastDecision: v.optional(v.union(v.literal("yes"), v.literal("no"))),
+    lastDecisionAt: v.optional(v.number()),
+  }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const record = await ctx.db.get("cases", args.caseId);
+    if (record === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    // Existence-hiding (cases convention): no membership reads as
+    // NOT_FOUND, never FORBIDDEN.
+    const membership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", record.workspaceId).eq("userId", user._id),
+      )
+      .unique();
+    if (membership === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    // Inline scan (not a call into getPendingConfirmation): same-file
+    // runQuery calls risk the api.d.ts inference cycle, and the rule is
+    // six lines. Token rows per case are few; collect is bounded here.
+    const tokens = await ctx.db
+      .query("confirmationTokens")
+      .withIndex("by_case", (q) => q.eq("caseId", record._id))
+      .collect();
+    const now = Date.now();
+    let pending:
+      | { requestedAt: number; expiresAt: number }
+      | undefined;
+    let decided:
+      | {
+          decision: "yes" | "no";
+          decidedAt: number;
+          createdAt: number;
+        }
+      | undefined;
+    for (const token of tokens) {
+      if (token.usedAt === undefined && token.expiresAt > now) {
+        if (pending === undefined || token.createdAt > pending.requestedAt) {
+          pending = {
+            requestedAt: token.createdAt,
+            expiresAt: token.expiresAt,
+          };
+        }
+      }
+      if (token.usedAt !== undefined && token.decision !== undefined) {
+        if (
+          decided === undefined ||
+          token.usedAt > decided.decidedAt ||
+          (token.usedAt === decided.decidedAt &&
+            token.createdAt > decided.createdAt)
+        ) {
+          decided = {
+            decision: token.decision,
+            decidedAt: token.usedAt,
+            createdAt: token.createdAt,
+          };
+        }
+      }
+    }
+    return {
+      requested: pending !== undefined,
+      requestedAt: pending?.requestedAt,
+      expiresAt: pending?.expiresAt,
+      lastDecision: decided?.decision,
+      lastDecisionAt: decided?.decidedAt,
+    };
+  },
+});
 

@@ -433,3 +433,103 @@ describe("cases.consumeConfirmation", () => {
     expect(record?.status).toBe("WORK_IN_PROGRESS");
   });
 });
+
+describe("cases.getConfirmationState", () => {
+  async function insertTokenRow(
+    t: Backend,
+    workspaceId: Id<"workspaces">,
+    caseId: Id<"cases">,
+    tag: string,
+    overrides: {
+      usedAt?: number;
+      decision?: "yes" | "no";
+      expiresAt?: number;
+      createdAt?: number;
+    } = {},
+  ) {
+    const now = Date.now();
+    return await t.run(async (ctx) =>
+      ctx.db.insert("confirmationTokens", {
+        workspaceId,
+        caseId,
+        tokenHash: hashToken(`raw-${tag}`),
+        decision: overrides.decision,
+        expiresAt: overrides.expiresAt ?? now + 72 * 3600 * 1000,
+        usedAt: overrides.usedAt,
+        createdAt: overrides.createdAt ?? now,
+      }),
+    );
+  }
+
+  test("requested is false when no tokens exist", async () => {
+    const t = makeBackend();
+    const { authed, caseId } = await makeWipCase(t, "nostate");
+    const state = await authed.query(api.cases.confirmation.getConfirmationState, {
+      caseId,
+    });
+    expect(state).toEqual({ requested: false });
+  });
+
+  test("requested is true with timestamps for a pending token", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeWipCase(t, "pending");
+    await insertTokenRow(t, workspaceId, caseId, "pending-1");
+    const state = await authed.query(api.cases.confirmation.getConfirmationState, {
+      caseId,
+    });
+    expect(state.requested).toBe(true);
+    expect(state.requestedAt).toBeDefined();
+    expect(state.expiresAt).toBeGreaterThan(Date.now());
+    expect(state.lastDecision).toBeUndefined();
+  });
+
+  test('lastDecision is "yes" after a yes consume', async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeWipCase(t, "decyes");
+    await insertTokenRow(t, workspaceId, caseId, "dec-yes-1", {
+      usedAt: Date.now(),
+      decision: "yes",
+    });
+    const state = await authed.query(api.cases.confirmation.getConfirmationState, {
+      caseId,
+    });
+    expect(state.lastDecision).toBe("yes");
+    expect(state.lastDecisionAt).toBeDefined();
+  });
+
+  test('lastDecision is "no" after a no consume', async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeWipCase(t, "decno");
+    await insertTokenRow(t, workspaceId, caseId, "dec-no-1", {
+      usedAt: Date.now(),
+      decision: "no",
+    });
+    const state = await authed.query(api.cases.confirmation.getConfirmationState, {
+      caseId,
+    });
+    expect(state.lastDecision).toBe("no");
+  });
+
+  test("rejects a cross-workspace caseId with NOT_FOUND", async () => {
+    const t = makeBackend();
+    const a = await makeWipCase(t, "state-a");
+    const b = await makeWipCase(t, "state-b");
+    await expect(
+      a.authed.query(api.cases.confirmation.getConfirmationState, {
+        caseId: b.caseId,
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+
+  test("expired-but-unused token does not count as pending", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeWipCase(t, "stale");
+    await insertTokenRow(t, workspaceId, caseId, "stale-1", {
+      expiresAt: Date.now() - 1000,
+    });
+    const state = await authed.query(api.cases.confirmation.getConfirmationState, {
+      caseId,
+    });
+    expect(state).toEqual({ requested: false });
+  });
+});
