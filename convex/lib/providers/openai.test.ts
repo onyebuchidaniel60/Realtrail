@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  __setDraftMessageForTests,
   __setTriageMessageForTests,
+  draftMessage,
   triageMessage,
+  type DraftMessageArgs,
   type TriageMessageArgs,
   type TriageSuggestion,
 } from "./openai";
@@ -69,6 +72,7 @@ function args(): TriageMessageArgs {
 afterEach(() => {
   vi.unstubAllGlobals();
   __setTriageMessageForTests(undefined);
+  __setDraftMessageForTests(undefined);
   delete process.env.OPENAI_BASE_URL;
 });
 
@@ -229,5 +233,81 @@ describe("triageMessage", () => {
     await expect(
       triageMessage({ ...args(), apiKey: "" }),
     ).rejects.toMatchObject({ data: { code: "PROVIDER_ERROR" } });
+  });
+});
+
+function draftArgs(): DraftMessageArgs {
+  return {
+    apiKey: "test-key",
+    model: "test-model",
+    input: {
+      caseTitle: "Leaking pipe",
+      caseDescription: "Kitchen pipe needs attention.",
+      caseCategory: "plumbing",
+      casePriority: "MEDIUM",
+      propertyName: "Palm Grove",
+      recipientType: "vendor",
+      recipientName: "Aqua Fix Ltd",
+      managerInstructions: "Ask for a quote.",
+      priorMessages: [],
+    },
+  };
+}
+
+describe("draftMessage", () => {
+  test("parses a valid draft reply and posts the draft schema", async () => {
+    const fetchMock = mockFetchJson(
+      responsesEnvelope(
+        JSON.stringify({ subject: "Quote request", textBody: "Hello." }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await draftMessage(draftArgs());
+    expect(result).toEqual({ subject: "Quote request", textBody: "Hello." });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/responses");
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    const format = (body.text as Record<string, unknown>).format as Record<
+      string,
+      unknown
+    >;
+    expect(format.type).toBe("json_schema");
+    expect(format.name).toBe("email_draft");
+    expect(format.strict).toBe(true);
+    expect(JSON.stringify(body)).not.toContain("test-key");
+  });
+
+  test("rejects a malformed draft shape", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetchJson(responsesEnvelope(JSON.stringify({ subject: "No body" }))),
+    );
+    await expect(draftMessage(draftArgs())).rejects.toMatchObject({
+      data: { code: "AI_ERROR" },
+    });
+  });
+
+  test("rejects an empty draft", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetchJson(
+        responsesEnvelope(JSON.stringify({ subject: "  ", textBody: "Hi" })),
+      ),
+    );
+    await expect(draftMessage(draftArgs())).rejects.toMatchObject({
+      data: { code: "AI_ERROR" },
+    });
+  });
+
+  test("test seam overrides the network call", async () => {
+    const fetchMock = mockFetchJson({});
+    vi.stubGlobal("fetch", fetchMock);
+    __setDraftMessageForTests(async () => ({
+      subject: "Mocked",
+      textBody: "Mocked body.",
+    }));
+    const result = await draftMessage(draftArgs());
+    expect(result).toEqual({ subject: "Mocked", textBody: "Mocked body." });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

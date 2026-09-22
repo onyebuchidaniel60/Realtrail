@@ -37,6 +37,11 @@
 
 import { appError } from "../errors";
 import {
+  buildDraftSystemPrompt,
+  buildDraftUserPrompt,
+  type DraftPromptInput,
+} from "./draftPrompt";
+import {
   buildTriageSystemPrompt,
   buildTriageUserPrompt,
   type TriagePromptInput,
@@ -317,4 +322,158 @@ export async function triageMessage(
     appError("AI_ERROR", "Triage model returned a malformed suggestion.");
   }
   return validateTriageSuggestion(parsed);
+}
+
+// Email drafting (Phase 8-A). Same Responses API transport as triage, but
+// a minimal two-field schema: the draft is advisory text the manager
+// reviews, so the only hard gates are shape, non-emptiness, and length
+// bounds. Overlong fields are truncated (the manager edits anyway); empty
+// fields are an AI_ERROR because a draft without a subject or body cannot
+// be approved for sending.
+
+export type EmailDraft = {
+  subject: string;
+  textBody: string;
+};
+
+export type DraftMessageArgs = {
+  apiKey: string;
+  model: string;
+  input: DraftPromptInput;
+};
+
+const DRAFT_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    subject: { type: "string" },
+    textBody: { type: "string" },
+  },
+  required: ["subject", "textBody"],
+} as const;
+
+const MAX_SUBJECT_CHARS = 200;
+const MAX_BODY_CHARS = 10000;
+const DRAFT_TIMEOUT_MS = 30_000;
+
+type DraftMessageFn = (args: DraftMessageArgs) => Promise<EmailDraft>;
+
+let draftTestOverride: DraftMessageFn | undefined;
+
+export function __setDraftMessageForTests(
+  fn: DraftMessageFn | undefined,
+): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("__setDraftMessageForTests is test-only.");
+  }
+  draftTestOverride = fn;
+}
+
+function validateEmailDraft(raw: unknown): EmailDraft {
+  if (typeof raw !== "object" || raw === null) {
+    appError("AI_ERROR", "Draft model returned a malformed draft.");
+  }
+  const record = raw as Record<string, unknown>;
+  if (!asString(record.subject) || !asString(record.textBody)) {
+    appError("AI_ERROR", "Draft model returned a malformed draft.");
+  }
+  const subject = (record.subject as string).trim().slice(0, MAX_SUBJECT_CHARS);
+  const textBody = (record.textBody as string).trim().slice(0, MAX_BODY_CHARS);
+  if (subject === "" || textBody === "") {
+    appError("AI_ERROR", "Draft model returned an empty draft.");
+  }
+  return { subject, textBody };
+}
+
+export async function draftMessage(
+  args: DraftMessageArgs,
+): Promise<EmailDraft> {
+  if (draftTestOverride !== undefined) {
+    return draftTestOverride(args);
+  }
+  const baseUrl = resolveBaseUrl();
+  const viaOpenRouter = isOpenRouter(baseUrl);
+  const headers: Record<string, string> = {
+    // The API key travels in the Authorization header only. It is
+    // never logged and never appears in error messages below.
+    Authorization: `Bearer ${args.apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (viaOpenRouter) {
+    headers["HTTP-Referer"] =
+      process.env.PUBLIC_APP_URL || "https://realtrail.local";
+    headers["X-OpenRouter-Title"] = "Realtrail";
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/responses`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: args.model,
+        instructions: buildDraftSystemPrompt(),
+        input: buildDraftUserPrompt(args.input),
+        text: {
+          format: {
+            type: "json_schema",
+            name: "email_draft",
+            schema: DRAFT_JSON_SCHEMA,
+            strict: true,
+          },
+        },
+        store: false,
+        ...(viaOpenRouter
+          ? {
+              provider: {
+                order: ["azure/swedencentral"],
+                allow_fallbacks: false,
+                require_parameters: true,
+              },
+            }
+          : {}),
+      }),
+      signal: AbortSignal.timeout(DRAFT_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.name : "fetch failed";
+    appError(
+      "PROVIDER_ERROR",
+      `Draft request failed (${detail}).`,
+      undefined,
+      true,
+    );
+  }
+  if (!response.ok) {
+    const retryable = response.status === 429 || response.status >= 500;
+    appError(
+      "PROVIDER_ERROR",
+      `Draft request failed with status ${response.status}.`,
+      undefined,
+      retryable,
+    );
+  }
+  let envelope: unknown;
+  try {
+    envelope = await response.json();
+  } catch {
+    appError("AI_ERROR", "Draft model returned a malformed draft.");
+  }
+  const status =
+    typeof envelope === "object" && envelope !== null
+      ? (envelope as Record<string, unknown>).status
+      : undefined;
+  if (status !== "completed") {
+    appError("AI_ERROR", "Draft model did not complete the request.");
+  }
+  const text = extractOutputText(envelope);
+  if (text === undefined) {
+    appError("AI_ERROR", "Draft model returned no usable output.");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    appError("AI_ERROR", "Draft model returned a malformed draft.");
+  }
+  return validateEmailDraft(parsed);
 }
