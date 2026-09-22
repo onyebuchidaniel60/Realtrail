@@ -1,6 +1,7 @@
 import { UserButton } from "@clerk/clerk-react";
 import {
   Activity,
+  Bell,
   Briefcase,
   Building2,
   ClipboardList,
@@ -10,9 +11,11 @@ import {
   Truck,
 } from "lucide-react";
 import { useQuery } from "convex/react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { useSyncStatus } from "@/hooks/useSyncUser";
+import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -66,7 +69,16 @@ export function SidebarNav({
     synced ? { filter: "all", pageSize: 1 } : "skip",
   );
   const unread = inboxState?.unreadCount ?? 0;
+  // Notifications badge: unread reminder/attention count. Gated on
+  // sync like the inbox query; never cached client-side.
+  const notifState = useQuery(
+    api.notifications.queries.unreadCount,
+    synced ? {} : "skip",
+  );
+  const notifUnread = notifState?.count ?? 0;
+  const [notifOpen, setNotifOpen] = useState(false);
   return (
+    <>
     <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
       {SECTIONS.map((section) => (
         <div key={section.title}>
@@ -110,10 +122,35 @@ export function SidebarNav({
                 </NavLink>
               </li>
             ))}
+            {section.title === "Workspace" && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setNotifOpen(true)}
+                  title={compact ? "Notifications" : undefined}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                >
+                  <Bell className="size-4 shrink-0" />
+                  <span className={cn(compact && "sr-only")}>
+                    Notifications
+                  </span>
+                  {notifUnread > 0 && (
+                    <span
+                      aria-label={`${notifUnread} unread notifications`}
+                      className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-semibold text-primary-foreground"
+                    >
+                      {notifUnread}
+                    </span>
+                  )}
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       ))}
     </nav>
+    <NotificationsDrawer open={notifOpen} onOpenChange={setNotifOpen} />
+    </>
   );
 }
 
