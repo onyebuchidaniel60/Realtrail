@@ -33,6 +33,8 @@
     --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
     --color-primary: var(--primary);
+    --color-ink-foreground: var(--ink-foreground);
+    --color-ink: var(--ink);
     --color-popover-foreground: var(--popover-foreground);
     --color-popover: var(--popover);
     --color-card-foreground: var(--card-foreground);
@@ -48,39 +50,60 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+// Realtrail brand palette (Phase 12). Warm off-white surfaces, white
+// cards, deep-lavender primary, lime/warm-yellow/red reserved for status
+// semantics, near-black primary buttons. Every text/background pair was
+// checked with a contrast script before shipping — ratios noted below.
+// Any color change must preserve WCAG AA (4.5:1 body text, 3:1 large
+// text and UI indicators). Tailwind v4 CSS-first: do NOT reintroduce
+// tailwind.config.js or postcss.config.js.
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --background: #FAF8F3;
+    --foreground: #1A1A1A; /* 16.4:1 on background */
+    --card: #FFFFFF;
+    --card-foreground: #1A1A1A;
+    --popover: #FFFFFF;
+    --popover-foreground: #1A1A1A;
+    /* Deep lavender. Chosen over #8B5CF6 because white text on #8B5CF6
+       is 4.2:1 (fails AA); white on #7C3AED is 5.7:1, and #7C3AED as
+       text or ring on off-white/white is 5.4:1+. */
+    --primary: #7C3AED;
+    --primary-foreground: #FFFFFF;
+    /* Near-black primary-button surface (AGENTS.md §12). Warm off-white
+       text reads ~16:1. Primary actions use bg-ink; lavender stays an
+       accent so buttons never look like chat bubbles. */
+    --ink: #1A1A1A;
+    --ink-foreground: #FAF8F3;
+    --secondary: #EFE9DD;
+    --secondary-foreground: #1A1A1A;
+    --muted: #F1EDE4;
+    --muted-foreground: #57534E; /* 7.2:1 on background, 6.5:1 on muted */
+    /* Lavender tint for hovers and selections. Dark text reads 14.2:1. */
+    --accent: #ECE5FA;
+    --accent-foreground: #1A1A1A;
+    /* Genuine urgency only. White text 4.8:1; body text 4.6:1. */
+    --destructive: #DC2626;
+    --border: #E7E5E4;
+    /* A touch deeper than border so fields read on the off-white page. */
+    --input: #D9D3C7;
+    /* Full-opacity focus ring: 5.4:1 against the background. The base
+       layer intentionally uses outline-ring (not /50) so keyboard focus
+       stays visible everywhere. */
+    --ring: #7C3AED;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #1A1A1A;
+    --sidebar-primary: #7C3AED;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #ECE5FA;
+    --sidebar-accent-foreground: #1A1A1A;
+    --sidebar-border: #E7E5E4;
+    --sidebar-ring: #7C3AED;
 }
 
 .dark {
@@ -119,12 +142,32 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
-    }
+    @apply border-border outline-ring;
+  }
   body {
     @apply bg-background text-foreground;
-    }
+  }
   html {
     @apply font-sans;
+  }
+}
+
+/* Minimum 44px touch targets on coarse pointers (mobile). Scoped to
+   pointer:coarse so desktop density is untouched. Buttons grow to 44px
+   tall; icon-only buttons also grow to 44px wide; sidebar nav links
+   (flex anchors) grow tall. Icon-only *links* are handled at their two
+   call sites (VendorCard, vendors table) since global `a` rules would
+   disturb inline text links. */
+@layer components {
+  @media (pointer: coarse) {
+    button {
+      min-height: 44px;
     }
+    button:has(> svg:only-child) {
+      min-width: 44px;
+    }
+    nav a {
+      min-height: 44px;
+    }
+  }
 }
