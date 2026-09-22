@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin_cleanup from "../admin/cleanup.js";
 import type * as buildings from "../buildings.js";
 import type * as cases_confirmation from "../cases/confirmation.js";
 import type * as cases_mutations from "../cases/mutations.js";
@@ -59,6 +60,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/cleanup": typeof admin_cleanup;
   buildings: typeof buildings;
   "cases/confirmation": typeof cases_confirmation;
   "cases/mutations": typeof cases_mutations;
