@@ -258,6 +258,103 @@ describe("CaseDetail", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders confirmation activities with labels and actors in order", () => {
+    mockDetailQueries({
+      caseData: {
+        case: CASE,
+        activities: [
+          {
+            _id: "a3",
+            _creationTime: 3,
+            workspaceId: "w1",
+            caseId: "c1",
+            type: "CONFIRMATION_CONFIRMED",
+            actorType: "resident",
+            summary: "Resident confirmed resolution",
+            createdAt: 3000,
+          },
+          {
+            _id: "a2",
+            _creationTime: 2,
+            workspaceId: "w1",
+            caseId: "c1",
+            type: "CONFIRMATION_REQUESTED",
+            actorType: "user",
+            summary: "Requested resident confirmation",
+            createdAt: 2000,
+          },
+          {
+            _id: "a1",
+            _creationTime: 1,
+            workspaceId: "w1",
+            caseId: "c1",
+            type: "CASE_CREATED",
+            actorType: "user",
+            summary: "Case created",
+            createdAt: 1000,
+          },
+        ],
+        vendor: null,
+        allowedActions: ALLOWED_ACTIONS,
+      },
+    });
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    expect(
+      screen.getByText("Requested resident confirmation"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Resident confirmed resolution"),
+    ).toBeInTheDocument();
+    const items = screen.getAllByRole("listitem");
+    expect(items[0].textContent).toContain("Resident confirmed resolution");
+    expect(items[0].textContent).toContain("resident");
+    expect(items[1].textContent).toContain("Requested resident confirmation");
+    expect(items[1].textContent).toContain("user");
+  });
+
+  it("mounts the confirmation panel for work-in-progress cases", () => {
+    mockDetailQueries({
+      caseData: {
+        case: { ...CASE, status: "WORK_IN_PROGRESS" },
+        activities: [],
+        vendor: null,
+        allowedActions: ALLOWED_ACTIONS,
+      },
+    });
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    expect(screen.getByText("Resident confirmation")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Request resident confirmation" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the denied confirmation label with resident actor", () => {
+    mockDetailQueries({
+      caseData: {
+        case: CASE,
+        activities: [
+          {
+            _id: "a9",
+            _creationTime: 9,
+            workspaceId: "w1",
+            caseId: "c1",
+            type: "CONFIRMATION_DENIED",
+            actorType: "resident",
+            summary: "Resident reported issue not resolved",
+            createdAt: 9000,
+          },
+        ],
+        vendor: null,
+        allowedActions: ALLOWED_ACTIONS,
+      },
+    });
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    expect(
+      screen.getByText("Resident reported issue not resolved"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/resident ·/)).toBeInTheDocument();
+  });
+
   it("renders the vendor card when a vendor is linked", () => {
     mockDetailQueries({
       caseData: {

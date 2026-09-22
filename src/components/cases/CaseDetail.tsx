@@ -19,6 +19,7 @@ import {
   DraftComposerSheet,
   type ComposerRecipient,
 } from "./DraftComposerSheet";
+import { ConfirmationPanel } from "./ConfirmationPanel";
 import { QueryErrorBoundary } from "@/components/common/ErrorBoundary";
 import { ErrorState } from "@/components/common/ErrorState";
 import { caseStatusVariant, formatRelativeTime, formatStatus } from "./caseDisplay";
@@ -330,11 +331,17 @@ export function CaseDetail({
       */}
         </div>
         <div className="xl:sticky xl:top-6">
-          <CaseActionPanel
-            record={record}
-            allowed={allowedActions}
-            onAction={handleAction}
-          />
+          <div className="flex flex-col gap-4">
+            <ConfirmationPanel
+              caseId={record._id}
+              caseStatus={record.status}
+            />
+            <CaseActionPanel
+              record={record}
+              allowed={allowedActions}
+              onAction={handleAction}
+            />
+          </div>
         </div>
       </div>
       {primary.action && (

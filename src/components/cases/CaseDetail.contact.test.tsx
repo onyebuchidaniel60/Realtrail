@@ -12,6 +12,10 @@ const apiStub = vi.hoisted(() => ({
   cases: {
     queries: { get: { __stub: "casesGet" } },
     mutations: {},
+    confirmation: {
+      requestConfirmation: { __stub: "requestConfirmation" },
+      getConfirmationState: { __stub: "getConfirmationState" },
+    },
   },
   buildings: { listByProperty: { __stub: "buildings" } },
   units: { listByBuilding: { __stub: "units" } },
@@ -139,6 +143,9 @@ function mockQueries(options: {
     }
     if (ref === apiStub.email.queries.listByCase) {
       return comms;
+    }
+    if (ref === apiStub.cases.confirmation.getConfirmationState) {
+      return { requested: false };
     }
     return [];
   });
