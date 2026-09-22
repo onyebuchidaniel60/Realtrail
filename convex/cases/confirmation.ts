@@ -201,3 +201,93 @@ export const requestConfirmation = mutation({
 });
 
 
+export const consumeConfirmation = internalMutation({
+  args: {
+    rawToken: v.string(),
+    decision: v.union(v.literal("yes"), v.literal("no")),
+  },
+  returns: v.object({
+    caseId: v.id("cases"),
+    status: v.union(v.literal("RESOLVED"), v.literal("WORK_IN_PROGRESS")),
+  }),
+  handler: async (ctx, args) => {
+    const tokenHash = hashToken(args.rawToken);
+    const token = await ctx.db
+      .query("confirmationTokens")
+      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+      .unique();
+    // No existence leakage: unknown and expired tokens share one code.
+    if (token === null) {
+      appError("TOKEN_EXPIRED", "This confirmation link is invalid.");
+    }
+    if (token.usedAt !== undefined) {
+      appError("TOKEN_USED", "This confirmation link was already used.");
+    }
+    const now = Date.now();
+    if (token.expiresAt < now) {
+      appError("TOKEN_EXPIRED", "This confirmation link has expired.");
+    }
+    const record = await ctx.db.get("cases", token.caseId);
+    if (record === null || record.workspaceId !== token.workspaceId) {
+      appError("INTERNAL_ERROR", "Confirmation case is unavailable.");
+    }
+    if (record.status !== "AWAITING_CONFIRMATION") {
+      appError(
+        "CONFLICT",
+        "This case is no longer awaiting confirmation.",
+      );
+    }
+    // Pair validity comes from the state machine; authorization comes
+    // from the token itself (the resident is unauthenticated). The
+    // "owner" role stands in purely to validate the from→to pair —
+    // residents are not members and carry no role.
+    const nextStatus = args.decision === "yes" ? "RESOLVED" : "WORK_IN_PROGRESS";
+    const allowed = canTransition(record.status, nextStatus, "owner");
+    if (!allowed.ok) {
+      appError(allowed.code, allowed.message);
+    }
+    if (args.decision === "yes") {
+      await ctx.db.patch("cases", record._id, {
+        status: "RESOLVED",
+        resolvedAt: now,
+        resolvedBy: "resident",
+        lastActivityAt: Math.max(record.lastActivityAt, now),
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.patch("cases", record._id, {
+        status: "WORK_IN_PROGRESS",
+        lastActivityAt: Math.max(record.lastActivityAt, now),
+        updatedAt: now,
+      });
+    }
+    await ctx.db.patch("confirmationTokens", token._id, {
+      usedAt: now,
+      decision: args.decision,
+    });
+    await ctx.db.insert("caseActivities", {
+      workspaceId: record.workspaceId,
+      caseId: record._id,
+      type:
+        args.decision === "yes"
+          ? "CONFIRMATION_CONFIRMED"
+          : "CONFIRMATION_DENIED",
+      actorType: "resident",
+      actorUserId: undefined,
+      summary:
+        args.decision === "yes"
+          ? "Resident confirmed resolution"
+          : "Resident reported issue not resolved",
+      metadata: { tokenId: token._id },
+      createdAt: now,
+    });
+    return { caseId: record._id, status: nextStatus };
+  },
+});
+
+// Race safety (documented choice, ARCHITECTURE.md §30): two concurrent
+// consumes of one token serialize on the token document inside Convex's
+// transaction. The loser observes usedAt set by the winner and throws
+// TOKEN_USED. No separate lock — the usedAt check inside the transaction
+// IS the mutual exclusion.
+
