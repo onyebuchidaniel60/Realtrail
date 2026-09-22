@@ -583,6 +583,10 @@ createdAt: number
 updatedAt: number
 ```
 
+Indexes:
+- `by_workspaceId`
+- `by_workspaceId_and_createdAt`
+
 ## vendorResearch
 
 ```text
@@ -596,6 +600,11 @@ createdAt: number
 completedAt: number?
 errorMessage: string?
 ```
+
+Indexes:
+- `by_caseId`
+- `by_workspaceId_and_createdAt`
+- `by_status`
 
 ## vendorResearchResults
 
@@ -614,6 +623,9 @@ evidence: string?
 rankBand: "high_relevance" | "relevant" | "other"
 fetchedAt: number
 ```
+
+Indexes:
+- `by_researchId`
 
 No numeric vendor score in MVP.
 
@@ -1843,10 +1855,13 @@ communications.by_agentMailThreadId
 communications.by_agentMailMessageId
 communications.by_workspaceId_and_createdAt
 
-vendors.by_workspace
+vendors.by_workspaceId
+vendors.by_workspaceId_and_createdAt
 
-vendorResearch.by_case
-vendorResearchResults.by_research
+vendorResearch.by_caseId
+vendorResearch.by_workspaceId_and_createdAt
+vendorResearch.by_status
+vendorResearchResults.by_researchId
 
 inboundEvents.by_providerEventId
 inboundEvents.by_providerMessageId
