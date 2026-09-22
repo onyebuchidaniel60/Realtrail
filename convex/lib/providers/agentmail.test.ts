@@ -24,7 +24,10 @@ function mockFetchJson(
 ) {
   const ok = init.ok ?? true;
   const status = init.status ?? (ok ? 200 : 500);
-  return vi.fn(async () => ({
+  // Params mirror the fetch signature so mock.calls stays typed; they are
+  // intentionally unread — assertions inspect mock.calls instead.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  return vi.fn(async (_url: string, _init: RequestInit) => ({
     ok,
     status,
     json: async (): Promise<unknown> => body,

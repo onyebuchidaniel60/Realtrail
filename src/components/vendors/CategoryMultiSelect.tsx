@@ -1,5 +1,6 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
 
+// eslint-disable-next-line react-refresh/only-export-components -- static category list co-located with its only consumer; no Fast Refresh state to go stale.
 export const VENDOR_CATEGORIES: Array<Doc<"vendors">["serviceCategories"][number]> = [
   "plumbing",
   "electrical",

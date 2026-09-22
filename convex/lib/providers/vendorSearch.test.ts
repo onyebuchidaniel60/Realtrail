@@ -68,6 +68,7 @@ describe("buildVendorSearchQuery locality and refinement", () => {
       propertyAddress: "12 Marina Road",
       refinement: "urgent\nDROP TABLE vendors;\u0000--",
     });
+    // eslint-disable-next-line no-control-regex -- the test intentionally asserts NUL/newline stripping.
     expect(query).not.toMatch(/[\n\u0000]/);
     expect(query).toContain("urgent");
   });

@@ -42,6 +42,9 @@ function validSuggestion(): TriageSuggestion {
 function mockFetchJson(body: unknown, init: { ok?: boolean; status?: number } = {}) {
   const ok = init.ok ?? true;
   const status = init.status ?? (ok ? 200 : 500);
+  // Params mirror the fetch signature so mock.calls stays typed; they are
+  // intentionally unread — assertions inspect mock.calls instead.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return vi.fn(async (_url: string, _init: RequestInit) => ({
     ok,
     status,
