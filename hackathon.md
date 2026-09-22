@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T00:36:14Z
+- **Last updated:** 2026-09-22T01:20:19Z
 
 ## Log
 
@@ -108,3 +108,6 @@ Routing fix: OpenRouter triage requests now pin to Azure Sweden Central with fal
 
 ### 2026-09-22 - 626cf8e
 Phase 6-B: live triage verified end-to-end. With provider credentials set on the deployment, a wrapper probe authenticated and returned valid structured output via Azure Sweden Central; a real inbound email then triaged first-try into a NEW case with manager-reviewable suggestions and a timeline activity. No code changes — verification and docs only. Handoff updated (626cf8e).
+
+### 2026-09-22 - f73999c
+Phase 6-C: manager review UI for AI triage. Case Detail gained an AI summary card with a review entry point; the review sheet offers editable fields with advisory hints, collapsible AI details, and accept flow into TRIAGED. All AI text renders as plain text only. Covered with 18 new tests (suite total 346). Handoff updated (f73999c) (`src/components/cases/AISummaryCard.tsx`, `src/components/cases/ReviewTriageSheet.tsx`).
