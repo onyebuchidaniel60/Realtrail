@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** OpenAI Responses API for triage and drafts (model ids via OPENAI_TRIAGE_MODEL / OPENAI_DRAFT_MODEL)
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T11:00:28Z
+- **Last updated:** 2026-09-22T11:49:25Z
 
 ## Log
 
@@ -135,3 +135,6 @@ Phase 9-B: public one-time resident confirmation link. A GET page renders Yes/No
 
 ### 2026-09-22 - 0a77146
 Phase 9 complete: signed one-time resident confirmation link plus the manager request UI and live end-to-end verification. Managers request and resend confirmation from the case view with timeline labels for each outcome; a real confirmation email was clicked through to a resident-confirmed RESOLVED case with no delivery or token issues. Covered with 21 new tests (suite total 587). Convex features: queries, mutations, realtime queries (`src/components/cases/ConfirmationPanel.tsx`, `convex/cases/confirmation.ts`). Handoff updated (0a77146).
+
+### 2026-09-22 - 61dd06e
+Phase 10: real operational reminders delivered as in-app notifications. Vendor follow-ups fire after silent outbound mail, resident nudges and escalation follow the confirmation chain, all dedupe-safe and state re-checked; the dashboard attention surface now consumes delivery failures and unread counts, with a sidebar badge and drawer. Covered with 44 new tests (suite total 631). Convex features: queries, mutations, actions, scheduled functions (`convex/notifications/`, `convex/lib/reminders.ts`). Handoff updated (61dd06e).
