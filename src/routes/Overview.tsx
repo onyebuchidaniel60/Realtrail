@@ -112,7 +112,7 @@ function DashboardBody({ onCreateCase }: { onCreateCase: () => void }) {
             // dialog state lifted to the Cases screen) instead of plain
             // navigation.
             onClick={onCreateCase}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
           >
             Create first case
           </button>

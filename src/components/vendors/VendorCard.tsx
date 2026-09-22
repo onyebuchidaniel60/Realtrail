@@ -32,7 +32,7 @@ export function VendorCard({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Open ${vendor.name} website`}
-              className="rounded-md p-2 hover:bg-accent"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-accent"
             >
               <ExternalLink className="size-4" />
             </a>

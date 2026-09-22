@@ -21,7 +21,9 @@ export function MetricCard({
       <p
         className={cn(
           "mt-1 text-2xl font-semibold",
-          variant === "warning" && "text-yellow-600 dark:text-yellow-400",
+          // Phase 12: amber-700 (5.0:1) instead of yellow-600 (2.9:1,
+          // fails even the 3:1 large-text bar).
+          variant === "warning" && "text-amber-700 dark:text-yellow-400",
           variant === "danger" && "text-red-600 dark:text-red-400",
           variant === "success" && "text-green-600 dark:text-green-400",
         )}

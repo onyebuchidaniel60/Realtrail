@@ -58,7 +58,9 @@ function CommunicationItem({
           {row.direction === "inbound" ? "Inbound" : "Outbound"}
         </StatusBadge>
         <StatusBadge variant={chip.variant}>{chip.label}</StatusBadge>
-        {row.aiDraftSource && <StatusBadge>AI-generated</StatusBadge>}
+        {row.aiDraftSource && (
+          <StatusBadge variant="brand">AI-generated</StatusBadge>
+        )}
       </p>
       <p className="text-sm font-medium">{row.subject}</p>
       <p className="text-xs text-muted-foreground">

@@ -1,14 +1,23 @@
 import { cn } from "@/lib/utils";
 
-export type StatusVariant = "default" | "success" | "warning" | "danger";
+export type StatusVariant =
+  | "default"
+  | "success"
+  | "warning"
+  | "danger"
+  | "brand";
 
 const VARIANT_CLASSES: Record<StatusVariant, string> = {
-  // TODO(Phase 12): map to brand tokens (lavender/warning/positive).
+  // Phase 12 brand mapping: positive → green, warning → warm yellow,
+  // urgent → red, neutral → muted. All pairs pass AA on white cards.
   default: "bg-muted text-muted-foreground",
   success: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100",
   warning:
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100",
   danger: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100",
+  // Subtle lavender tint for AI provenance chips. Deep-lavender text on
+  // the tint reads 4.9:1.
+  brand: "bg-primary/10 text-primary",
 };
 
 export function StatusBadge({

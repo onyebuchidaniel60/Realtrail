@@ -124,7 +124,7 @@ function ConversationBody({ threadId }: { threadId: string }) {
           <button
             type="button"
             onClick={() => setLinkOpen(true)}
-            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+            className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-ink-foreground"
           >
             Link to case
           </button>

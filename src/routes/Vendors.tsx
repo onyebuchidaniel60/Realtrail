@@ -65,7 +65,7 @@ export function VendorsPage() {
         <button
           type="button"
           onClick={() => setDrawer({ mode: "add" })}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
         >
           Add vendor
         </button>
@@ -146,7 +146,7 @@ function VendorsBody({
             <button
               type="button"
               onClick={onAdd}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
             >
               Add vendor
             </button>
@@ -210,7 +210,7 @@ function VendorsBody({
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Open ${vendor.name} website`}
-                      className="rounded-md p-1.5 hover:bg-accent"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-accent"
                     >
                       <ExternalLink className="size-4" />
                     </a>

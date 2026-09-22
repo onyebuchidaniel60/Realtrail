@@ -281,7 +281,9 @@ export function DraftComposerSheet({
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-2 font-medium">
               Subject
-              {aiSource && <StatusBadge>AI-generated</StatusBadge>}
+              {aiSource && (
+                <StatusBadge variant="brand">AI-generated</StatusBadge>
+              )}
             </span>
             <input
               value={subject}
@@ -329,7 +331,7 @@ export function DraftComposerSheet({
                   ? "Save the draft first"
                   : undefined
               }
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
             >
               Send
             </button>

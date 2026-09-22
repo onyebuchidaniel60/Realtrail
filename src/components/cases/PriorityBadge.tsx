@@ -4,7 +4,7 @@ import type { StatusVariant } from "@/components/common/StatusBadge";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 const PRIORITY_VARIANTS: Record<Priority, StatusVariant> = {
-  // TODO(Phase 12): map to brand tokens (red urgency, warm yellow HIGH).
+  // Phase 12: URGENT → danger red, HIGH → warm yellow, rest neutral.
   URGENT: "danger",
   HIGH: "warning",
   MEDIUM: "default",

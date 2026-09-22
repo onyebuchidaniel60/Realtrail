@@ -60,7 +60,7 @@ export function AISummaryCard({
       ? output.suggestedNextAction
       : "";
   return (
-    // TODO(Phase 12): map the AI accent to brand tokens (lavender primary).
+    // Phase 12: AI surfaces use the lavender primary tint, never chat styling.
     <section
       aria-label="AI summary"
       className="rounded-xl border border-primary/30 bg-primary/5 p-6"
@@ -86,7 +86,7 @@ export function AISummaryCard({
       <button
         type="button"
         onClick={onReview}
-        className="mt-3 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
       >
         Review triage
       </button>

@@ -131,7 +131,7 @@ export function ConfirmationPanel({
       <button
         type="button"
         onClick={() => setConfirmOpen(true)}
-        className="mt-4 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+        className="mt-4 w-full rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
       >
         Request resident confirmation
       </button>

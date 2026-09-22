@@ -125,7 +125,7 @@ export function SendConfirmationDialog({
             type="button"
             onClick={handleConfirm}
             disabled={confirming}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
           >
             {confirming ? "Sending…" : "Send"}
           </button>

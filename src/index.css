@@ -33,6 +33,7 @@
     --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
     --color-primary: var(--primary);
+    --color-destructive-foreground: var(--destructive-foreground);
     --color-ink-foreground: var(--ink-foreground);
     --color-ink: var(--ink);
     --color-popover-foreground: var(--popover-foreground);
@@ -83,6 +84,7 @@
     --accent-foreground: #1A1A1A;
     /* Genuine urgency only. White text 4.8:1; body text 4.6:1. */
     --destructive: #DC2626;
+    --destructive-foreground: #FFFFFF;
     --border: #E7E5E4;
     /* A touch deeper than border so fields read on the off-white page. */
     --input: #D9D3C7;

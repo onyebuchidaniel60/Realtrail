@@ -53,7 +53,7 @@ export function ConfirmDialog({
             className={
               destructive
                 ? "rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-50"
-                : "rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                : "rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
             }
           >
             {confirming ? "Working…" : confirmLabel}

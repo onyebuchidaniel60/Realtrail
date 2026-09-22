@@ -110,7 +110,7 @@ function ResultCard({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
         >
           Save vendor
         </button>
@@ -198,7 +198,7 @@ export function VendorDiscoveryDrawer({
                 type="button"
                 onClick={handleSearch}
                 disabled={pending}
-                className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                className="shrink-0 rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
               >
                 Search
               </button>

@@ -2,7 +2,7 @@ import type { StatusVariant } from "@/components/common/StatusBadge";
 import type { CaseStatus } from "../../../convex/cases/stateMachine";
 
 const STATUS_VARIANTS: Record<CaseStatus, StatusVariant> = {
-  // TODO(Phase 12): map to brand tokens (lavender flow, lime resolved).
+  // Phase 12: awaiting → warning, resolved → positive green, rest neutral.
   NEW: "default",
   TRIAGED: "default",
   IN_PROGRESS: "default",

@@ -165,7 +165,7 @@ function PropertyDialog({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
             >
               {editing ? "Save changes" : "Create property"}
             </button>
@@ -271,7 +271,7 @@ function BuildingDialog({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
             >
               {editing ? "Save changes" : "Create building"}
             </button>
@@ -376,7 +376,7 @@ function UnitDialog({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground disabled:opacity-50"
             >
               {editing ? "Save changes" : "Create unit"}
             </button>
@@ -459,7 +459,7 @@ function PropertiesBody() {
         <button
           type="button"
           onClick={() => setPropertyDialog({ open: true, editing: null })}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
         >
           Add property
         </button>
@@ -474,7 +474,7 @@ function PropertiesBody() {
             <button
               type="button"
               onClick={() => setPropertyDialog({ open: true, editing: null })}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
             >
               Add property
             </button>
@@ -570,7 +570,7 @@ function PropertiesBody() {
                             onClick={() =>
                               setBuildingDialog({ open: true, editing: null })
                             }
-                            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
                           >
                             Create first building
                           </button>
@@ -653,7 +653,7 @@ function PropertiesBody() {
                               onClick={() =>
                                 setUnitDialog({ open: true, editing: null })
                               }
-                              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
                             >
                               Create first unit
                             </button>

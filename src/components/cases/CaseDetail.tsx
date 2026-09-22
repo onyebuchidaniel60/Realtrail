@@ -67,7 +67,7 @@ export function CaseDetailNotFound({ onBack }: { onBack: () => void }) {
           <button
             type="button"
             onClick={onBack}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ink-foreground"
           >
             Back to cases
           </button>
@@ -350,7 +350,7 @@ export function CaseDetail({
             type="button"
             disabled={primary.disabled}
             onClick={() => primary.action && handleAction(primary.action)}
-            className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-ink-foreground disabled:opacity-50"
           >
             {primary.label}
           </button>
