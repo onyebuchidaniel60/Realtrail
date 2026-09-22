@@ -9,6 +9,8 @@ import { LoadingSkeleton as PageSkeleton } from "@/components/layout/ProtectedRo
 import { toast } from "@/components/common/toast";
 import { CaseActionPanel } from "./CaseActionPanel";
 import { getPrimaryAction, type PanelAction } from "./caseActions";
+import { AISummaryCard } from "./AISummaryCard";
+import { ReviewTriageSheet } from "./ReviewTriageSheet";
 import { PriorityBadge } from "./PriorityBadge";
 import { caseStatusVariant, formatRelativeTime, formatStatus } from "./caseDisplay";
 import { AssignDialog } from "./dialogs/AssignDialog";
@@ -78,6 +80,7 @@ export function CaseDetail({
   const [dialog, setDialog] = useState<
     null | "note" | "edit" | "assign" | "status" | "close" | "reopen"
   >(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const propertyId = data?.case.propertyId;
   const buildingId = data?.case.buildingId;
@@ -111,6 +114,10 @@ export function CaseDetail({
   const primary = getPrimaryAction(record, allowedActions);
 
   async function handleAction(action: PanelAction) {
+    if (action.kind === "review") {
+      setReviewOpen(true);
+      return;
+    }
     if (action.kind === "transition") {
       try {
         await transitionStatus({
@@ -166,9 +173,10 @@ export function CaseDetail({
         </p>
       </header>
 
+      <AISummaryCard record={record} onReview={() => setReviewOpen(true)} />
+
       <section className="rounded-xl border bg-card p-6">
-        <h2 className="font-medium">Issue</h2>
-        <p className="mt-2 text-sm whitespace-pre-wrap">{record.description}</p>
+        <h2 className="font-medium">Issue</h2>        <p className="mt-2 text-sm whitespace-pre-wrap">{record.description}</p>
         <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
           <dt className="text-muted-foreground">Category</dt>
           <dd>{record.category}</dd>
@@ -200,7 +208,6 @@ export function CaseDetail({
       {/*
         Later phases insert sections here — do not add them in 3-B-2:
         - Phase 5: Communications section (email threads, reply composer)
-        - Phase 6: AI summary card (triage output, provenance, review action)
         - Phase 7: Vendor section (selected vendor, discovery entry point)
         - Phase 9: Resolution section (vendor completion, confirmation state)
       */}
@@ -252,6 +259,13 @@ export function CaseDetail({
       )}
       {dialog === "reopen" && (
         <ReopenDialog open onClose={closeDialog} record={record} />
+      )}
+      {reviewOpen && (
+        <ReviewTriageSheet
+          record={record}
+          open
+          onClose={() => setReviewOpen(false)}
+        />
       )}
     </>
   );

@@ -21,7 +21,8 @@ export type PanelAction =
   | { kind: "assign" }
   | { kind: "status" }
   | { kind: "close" }
-  | { kind: "reopen" };
+  | { kind: "reopen" }
+  | { kind: "review" };
 
 export interface PrimaryAction {
   label: string;
@@ -37,7 +38,15 @@ export function getPrimaryAction(
     allowed.canTransitionTo.includes(to);
   switch (record.status) {
     case "NEW":
-      // TODO(Phase 6): replace fallback with "Review triage" review action.
+      // Triaged cases open the review sheet; anything else (failed,
+      // pending, never-triaged) falls back to manual status handling.
+      if (record.aiTriageStatus === "completed") {
+        return {
+          label: "Review triage",
+          action: { kind: "review" },
+          disabled: false,
+        };
+      }
       return {
         label: "Change status",
         action: { kind: "status" },

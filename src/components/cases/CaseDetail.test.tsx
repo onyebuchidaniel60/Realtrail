@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CaseDetail } from "./CaseDetail";
@@ -205,5 +206,40 @@ describe("CaseDetail", () => {
     mockDetailQueries({ caseData: null });
     render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
     expect(screen.getByText("Case not found")).toBeInTheDocument();
+  });
+
+  it("opens the review sheet from the Review triage primary action", async () => {
+    const user = userEvent.setup();
+    mockDetailQueries({
+      caseData: {
+        case: {
+          ...CASE,
+          status: "NEW",
+          aiTriageStatus: "completed",
+          aiTriageOutput: {
+            title: "AI title",
+            summary: "AI summary",
+            category: "water",
+            prioritySuggestion: "HIGH",
+            propertyCandidateId: "p1",
+            buildingCandidateId: null,
+            unitCandidateId: null,
+            missingInformation: [],
+            suggestedNextAction: "Send the plumber.",
+            possibleRelatedCaseIds: [],
+            needsReview: true,
+          },
+        },
+        activities: [],
+        allowedActions: { ...ALLOWED_ACTIONS, canTransitionTo: ["TRIAGED"] },
+      },
+    });
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    // AI card and primary action both render for triaged NEW cases.
+    expect(screen.getByText("Realtrail AI")).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", { name: "Review triage" });
+    expect(buttons.length).toBeGreaterThan(0);
+    await user.click(buttons[0]);
+    expect(screen.getByText("Review AI triage")).toBeInTheDocument();
   });
 });

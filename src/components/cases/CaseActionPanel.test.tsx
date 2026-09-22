@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CaseActionPanel } from "./CaseActionPanel";
 import type { AllowedActions } from "./caseActions";
@@ -121,5 +122,35 @@ describe("CaseActionPanel", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Change status" })).toBeDisabled();
+  });
+
+  it("offers Review triage as the primary action for NEW triaged cases", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(
+      <CaseActionPanel
+        record={makeRecord({ status: "NEW", aiTriageStatus: "completed" })}
+        allowed={makeAllowed({ canTransitionTo: ["TRIAGED"] })}
+        onAction={onAction}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Review triage" }));
+    expect(onAction).toHaveBeenCalledWith({ kind: "review" });
+  });
+
+  it("falls back to Change status for NEW cases with failed triage", () => {
+    render(
+      <CaseActionPanel
+        record={makeRecord({ status: "NEW", aiTriageStatus: "failed" })}
+        allowed={makeAllowed({ canTransitionTo: ["TRIAGED"] })}
+        onAction={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Change status" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Review triage" }),
+    ).not.toBeInTheDocument();
   });
 });
