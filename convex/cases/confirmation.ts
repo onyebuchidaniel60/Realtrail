@@ -13,6 +13,7 @@ import {
   generateToken,
   hashToken,
 } from "../lib/confirmationToken";
+import { reminderDelays } from "../lib/reminders";
 import { EMAIL_PATTERN } from "./mutations";
 import { canTransition, type Role } from "./stateMachine";
 
@@ -192,7 +193,7 @@ export const requestConfirmation = mutation({
       type: "CONFIRMATION_REQUESTED",
       actorType: "user",
       actorUserId: user._id,
-      summary: "Requested resident confirmation",
+      summary: "Requested resident confirmation; reminder chain armed",
       metadata: { communicationId, tokenId, recipient },
       createdAt: now,
     });
@@ -200,6 +201,31 @@ export const requestConfirmation = mutation({
       0,
       internal.email.sendPendingCommunication.sendPendingCommunication,
       { communicationId },
+    );
+    // Reminder chain (Phase 10): two nudges plus an escalation, all
+    // notification-only. Resolution silences them implicitly — each
+    // action re-checks case state and no-ops past AWAITING_CONFIRMATION.
+    // Cadence is read here (env at schedule time); the actions re-read
+    // env at fire time for their due checks.
+    const delays = reminderDelays();
+    await ctx.db.patch("cases", record._id, {
+      residentReminderScheduledAt: now,
+      notificationsScheduledAt: now,
+    });
+    await ctx.scheduler.runAfter(
+      delays.residentReminderMs,
+      internal.notifications.reminders.sendResidentReminder,
+      { caseId: record._id, cycle: 1 },
+    );
+    await ctx.scheduler.runAfter(
+      2 * delays.residentReminderMs,
+      internal.notifications.reminders.sendResidentReminder,
+      { caseId: record._id, cycle: 2 },
+    );
+    await ctx.scheduler.runAfter(
+      delays.escalationMs,
+      internal.notifications.reminders.sendResidentReminder,
+      { caseId: record._id, cycle: 3 },
     );
     return { tokenId, communicationId };
   },

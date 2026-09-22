@@ -12,6 +12,7 @@ import {
   isUncertainSendError,
   sendMessage,
 } from "../lib/providers/agentmail";
+import { reminderDelays } from "../lib/reminders";
 
 // Outbound send worker (Phase 8-A).
 //
@@ -146,6 +147,26 @@ export const finalizeSent = internalMutation({
           lastActivityAt: Math.max(record.lastActivityAt, now),
           lastOutboundAt: now,
         });
+        // Vendor follow-up chain (Phase 10): armed only for vendor mail
+        // on a case that is actually waiting on that vendor. The worker
+        // re-checks state at fire time; repeat sends re-arm harmlessly
+        // because the dedupeKey makes double-fires idempotent. No
+        // re-arm on retry — this mutation runs on success only.
+        if (
+          comm.direction === "outbound" &&
+          comm.participantType === "vendor" &&
+          record.status === "VENDOR_CONTACTED"
+        ) {
+          const delays = reminderDelays();
+          await ctx.db.patch("cases", record._id, {
+            vendorFollowupScheduledAt: now,
+          });
+          await ctx.scheduler.runAfter(
+            delays.vendorFollowupMs,
+            internal.notifications.reminders.sendVendorFollowUp,
+            { caseId: record._id },
+          );
+        }
       }
     }
     return { status: "sent" as const };
