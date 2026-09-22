@@ -348,4 +348,21 @@ export default defineSchema({
     ),
     fetchedAt: v.number(),
   }).index("by_researchId", ["researchId"]),
+
+  confirmationTokens: defineTable({
+    workspaceId: v.id("workspaces"),
+    caseId: v.id("cases"),
+    // SHA-256 hex of the raw token. The raw token lives only in the
+    // outbound email body — never in this table, never in logs.
+    tokenHash: v.string(),
+    // Optional at issue time: the resident chooses yes/no on the
+    // /confirm page (Phase 9-B), and consumeConfirmation records it.
+    decision: v.optional(v.union(v.literal("yes"), v.literal("no"))),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_case", ["caseId"])
+    .index("by_expiresAt", ["expiresAt"]),
 });
