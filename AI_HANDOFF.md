@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 8 — AI Drafting and AgentMail Sending (in progress). Sub-task 8-A complete (backend). 8-B pending (live send verification, human step). 8-C pending (draft UI).**
+**Phase 8 — AI Drafting and AgentMail Sending (in progress). 8-A complete. 8-B complete. 8-C pending (draft UI).**
 
 ---
 
@@ -181,6 +181,7 @@ Application implementation (in progress):
 - Phase 7-B: Live Firecrawl wired. FIRECRAWL_API_KEY set as Convex env var (by human). End-to-end discovery verified against a real case: search query constructed from category + locality, results normalized with rank bands, contact info extracted where available. No internal case data leaked to Firecrawl.
 - Phase 7-C: Vendors screen (table/cards, search, category filter, add/edit drawer). Vendor section in Case Detail (vendor card, link/unlink). Discovery drawer with refinement input, rank-banded result cards, evidence snippets, save-to-vendors action, and automatic case linkage via cases.setVendor. Added case.vendorId field + setVendor mutation + cases.get vendor summary. Test count: 435.
 - Phase 8-A: Outbound drafting + send backend (no UI, no live sends — all provider calls mocked). sendMessage wired in the AgentMail wrapper (POST /v0/inboxes/{id}/messages/send, Bearer, 30s timeout, clientId sent as the Idempotency-Key header per current docs; timeout/malformed-200 map to uncertain errors via isUncertainSendError). Draft prompt module with injection defenses (untrusted_thread delimiters) and do-not-invent rules. draftEmail in the OpenAI wrapper (strict {subject, textBody} schema, model from OPENAI_DRAFT_MODEL). ai.generateDraft internalAction (vendor recipient resolves to stored vendor email; resident recipient validated; prior 5 messages as context; persists draft + DRAFT_GENERATED activity; never sends). communications.createDraftRecord (manual-draft path, DRAFT_CREATED/DRAFT_GENERATED). communications.approveSend (human gate: draft-only CONFLICT guard, closed-case rejection, schedules the worker, no provider call inside). email.sendPendingCommunication worker (pending_send → sending claim → sent with provider ids + EMAIL_SENT; 429/5xx retry 3x at 60s; 4xx/config fail fast; timeout/unknown → send_uncertain with no auto-retry). listByCase query (chronological, no provider IDs). Added sendAttempts to communications. Test count: 492 (was 435; +57).
+- Phase 8-B: Live send verified end-to-end on eu-west-dev. Temp module (convex/tmpVerifyOutbound.ts, deleted after) seeded one pending_send row on the smoke workspace and invoked the real worker once via CLI. Observed DB transitions: pending_send → sending → sent, sendAttempts stayed 0, providerMessageId + agentMailMessageId + agentMailThreadId populated, lastError cleared, case.lastOutboundAt refreshed, exactly one EMAIL_SENT activity, zero EMAIL_SEND_UNCERTAIN. Live send verified against target mailbox (operator-supplied): human confirmed receipt with matching From (workspace inbox), To, Date, and Subject, no delay. No code, schema, or test changes (docs-only task); temp module deleted; full suite still 492/492.
 
 ---
 
@@ -543,6 +544,9 @@ Watch especially:
 - Same-file ctx.runQuery/runMutation calls need care with api.d.ts inference: the ACTION HANDLER needs an explicit return type annotation (triageInbound pattern). Annotating only the result binding is not enough — without it, the whole module collapses to any (TS7022) and cascades into src/ implicit-any errors.
 - npm run lint is green again (resolved by the lint-cleanup task at a0dc9c4: typed mock params kept with scoped disables, NUL-regex test got a scoped disable, CategoryMultiSelect constant got a scoped disable). Lesson: convex's bundled typecheck (dev --once) is stricter than npm run typecheck — dropping mock params broke it (mock.calls tuple widens to []), so verify lint fixes with dev --once, not just npm scripts.
 - Box slowness flake (2026-09-22 session): full test:once with default 5s timeouts flaked on random frontend userEvent files (varying sets per run, all timeouts, zero logic failures); backend chunk passed 356/356 on defaults and frontend passed 136/136 with --testTimeout=30000. If the full run flakes again, split convex/ vs src/ before suspecting a regression. No timeout config was changed.
+- AgentMail outbound is live. If sends fail, check AgentMail credits and key scope first.
+- sendAttempts stays at 0 on success (increments only on PROVIDER_ERROR).
+- send_uncertain is terminal until a manager resolves it — no auto-retry, no auto-re-send.
 
 ---
 
@@ -565,4 +569,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 8-B — live send verification. Human provides a target email address (their own mailbox). Agent sends a real email via the pipeline, verifies arrival, verifies the communication transitions through pending_send → sending → sent.**
+**Phase 8-C — Draft UI. Draft editor drawer in Case Detail. 'Contact vendor' button (currently placeholder-disabled in Phase 7-C) opens the draft flow. 'Contact resident' variant. Send confirmation dialog. Sent-message rendering in the communications section. Tests.**
