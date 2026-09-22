@@ -140,6 +140,12 @@ export default defineSchema({
     lastOutboundAt: v.optional(v.number()),
     lastActivityAt: v.number(),
     reopenCount: v.number(),
+    // Reminder chain markers (Phase 10). Timestamps record that a
+    // reminder chain was armed, never its outcome — the scheduled
+    // actions re-check live case state before doing anything.
+    notificationsScheduledAt: v.optional(v.number()),
+    vendorFollowupScheduledAt: v.optional(v.number()),
+    residentReminderScheduledAt: v.optional(v.number()),
     locationUnknown: v.boolean(),
     closedReason: v.optional(
       v.union(
@@ -365,4 +371,28 @@ export default defineSchema({
     .index("by_tokenHash", ["tokenHash"])
     .index("by_case", ["caseId"])
     .index("by_expiresAt", ["expiresAt"]),
+
+  notifications: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    caseId: v.optional(v.id("cases")),
+    type: v.union(
+      v.literal("vendor_followup"),
+      v.literal("resident_confirmation"),
+      v.literal("urgent_case"),
+      v.literal("system_error"),
+    ),
+    title: v.string(),
+    body: v.string(),
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+    // Deterministic idempotency key `<caseId>:<type>:<cycle>` (or
+    // `<scope>:<type>:<cycle>` for caseless rows). Reminder jobs retry
+    // and double-fire; the key keeps one logical event to one row.
+    dedupeKey: v.string(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_readAt", ["userId", "readAt"])
+    .index("by_workspaceId_and_createdAt", ["workspaceId", "createdAt"])
+    .index("by_dedupeKey", ["dedupeKey"]),
 });
