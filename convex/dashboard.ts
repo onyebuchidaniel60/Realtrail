@@ -2,15 +2,15 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import schema from "./schema";
 import { requireUser } from "./lib/auth";
-
-// Thresholds are hardcoded until Phase 10 replaces them with REALTRAIL_*
-// deployment env vars (see ARCHITECTURE.md §34).
-const VENDOR_FOLLOWUP_MS = 4 * 60 * 60 * 1000;
-const CONFIRMATION_REMINDER_MS = 24 * 60 * 60 * 1000;
+import { reminderDelays } from "./lib/reminders";
 
 const ATTENTION_CAP = 10;
 const UP_NEXT_CAP = 5;
 const RECENT_ACTIVITY_CAP = 10;
+// Bounded scan for failed/uncertain communications (same precedent as
+// the inbox unread-count cap). Workspaces past this many rows may miss
+// a trigger; the reminder actions remain the durable mechanism.
+const BAD_COMMS_SCAN_LIMIT = 1000;
 
 const PRIORITY_WEIGHT: Record<string, number> = {
   URGENT: 0,
@@ -139,6 +139,7 @@ export const get = query({
         createdAt: v.number(),
       }),
     ),
+    unreadNotifications: v.number(),
   }),
   handler: async (ctx, args) => {
     void args.range;
@@ -169,6 +170,7 @@ export const get = query({
       },
       upNext: [],
       recentActivity: [],
+      unreadNotifications: 0,
     };
     if (memberships.length === 0) {
       return empty;
@@ -184,6 +186,33 @@ export const get = query({
       .query("cases")
       .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
       .collect();
+
+    // Cases carrying a failed or uncertain communication (Phase 10).
+    // One entry per case regardless of how many bad rows it has; the
+    // scan is bounded (see BAD_COMMS_SCAN_LIMIT).
+    const badCommsRows = await ctx.db
+      .query("communications")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+      .take(BAD_COMMS_SCAN_LIMIT);
+    const badCommsCaseIds = new Set(
+      badCommsRows
+        .filter(
+          (row) =>
+            row.caseId !== undefined &&
+            (row.status === "failed" || row.status === "send_uncertain"),
+        )
+        .map((row) => row.caseId as string),
+    );
+
+    // Unread notification count for the calling user. Case-centric
+    // attention below is untouched by this number.
+    const userNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect();
+    const unreadNotifications = userNotifications.filter(
+      (row) => row.readAt === undefined,
+    ).length;
 
     const now = Date.now();
     const weekStart = startOfWorkspaceWeek(
@@ -205,10 +234,9 @@ export const get = query({
       ).length,
     };
 
-    // Phase 10 replaces the hardcoded 4h / 24h thresholds with REALTRAIL_*
-    // env vars. The triage trigger never fires yet (Phase 6 sets
-    // aiTriageStatus); the communication-failure trigger does not exist
-    // until Phase 5 adds communications status.
+    // Thresholds are env-driven (Phase 10): read fresh on every call,
+    // falling back to 4h/24h when unset.
+    const delays = reminderDelays();
     const attention = records
       .filter((c) => {
         if (c.status === "CLOSED") {
@@ -220,17 +248,20 @@ export const get = query({
         if (
           c.status === "VENDOR_CONTACTED" &&
           c.lastOutboundAt !== undefined &&
-          now - c.lastOutboundAt >= VENDOR_FOLLOWUP_MS
+          now - c.lastOutboundAt >= delays.vendorFollowupMs
         ) {
           return true;
         }
         if (
           c.status === "AWAITING_CONFIRMATION" &&
-          now - c.lastActivityAt >= CONFIRMATION_REMINDER_MS
+          now - c.lastActivityAt >= delays.residentReminderMs
         ) {
           return true;
         }
         if (c.aiTriageStatus === "pending" && c.status === "NEW") {
+          return true;
+        }
+        if (badCommsCaseIds.has(c._id)) {
           return true;
         }
         return false;
@@ -314,6 +345,13 @@ export const get = query({
       });
     }
 
-    return { metrics, attention, operations, upNext, recentActivity };
+    return {
+      metrics,
+      attention,
+      operations,
+      upNext,
+      recentActivity,
+      unreadNotifications,
+    };
   },
 });

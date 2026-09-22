@@ -3,7 +3,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import schema from "./schema";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { startOfWorkspaceWeek } from "./dashboard";
 
@@ -390,4 +390,120 @@ describe("dashboard.get", () => {
       data: { code: "UNAUTHENTICATED" },
     });
   });
+
+  test("failed communication surfaces one attention entry", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, OWNER_A);
+    const { caseId } = await createCase(authed);
+    await insertComm(t, workspaceId, caseId, "failed");
+    const result = await authed.query(api.dashboard.get, {});
+    expect(result.attention.map((c) => String(c._id))).toEqual([
+      String(caseId),
+    ]);
+  });
+
+  test("send_uncertain communication surfaces an attention entry", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, OWNER_A);
+    const { caseId } = await createCase(authed);
+    await insertComm(t, workspaceId, caseId, "send_uncertain");
+    const result = await authed.query(api.dashboard.get, {});
+    expect(result.attention.map((c) => String(c._id))).toEqual([
+      String(caseId),
+    ]);
+  });
+
+  test("multiple bad communications for one case count once", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, OWNER_A);
+    const { caseId } = await createCase(authed);
+    await insertComm(t, workspaceId, caseId, "failed");
+    await insertComm(t, workspaceId, caseId, "send_uncertain");
+    const result = await authed.query(api.dashboard.get, {});
+    expect(result.attention).toHaveLength(1);
+  });
+
+  test("vendor follow-up threshold honors the env var", async () => {
+    const t = makeBackend();
+    const { authed } = await makeWorkspace(t, OWNER_A);
+    const { caseId } = await createCase(authed);
+    await patchCase(t, caseId, {
+      status: "VENDOR_CONTACTED",
+      lastOutboundAt: Date.now() - 60 * 60 * 1000,
+    });
+    // Default 4h: one hour of silence is not attention-worthy.
+    expect(
+      (await authed.query(api.dashboard.get, {})).attention,
+    ).toHaveLength(0);
+    process.env.REALTRAIL_VENDOR_FOLLOWUP_HOURS = "0.001";
+    try {
+      const result = await authed.query(api.dashboard.get, {});
+      expect(result.attention.map((c) => String(c._id))).toEqual([
+        String(caseId),
+      ]);
+    } finally {
+      delete process.env.REALTRAIL_VENDOR_FOLLOWUP_HOURS;
+    }
+  });
+
+  test("unreadNotifications reflects the caller's unread count", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId } = await makeWorkspace(t, OWNER_A);
+    const userId = await t.run(async (ctx) =>
+      ctx.db
+        .query("users")
+        .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", OWNER_A.subject))
+        .unique()
+        .then((u) => u!._id),
+    );
+    expect(
+      (await authed.query(api.dashboard.get, {})).unreadNotifications,
+    ).toBe(0);
+    await t.mutation(internal.notifications.internal.createIfAbsent, {
+      workspaceId,
+      userId,
+      caseId: undefined,
+      type: "urgent_case",
+      title: "Notice",
+      body: "Body.",
+      dedupeKey: "dash-unread-1",
+    });
+    expect(
+      (await authed.query(api.dashboard.get, {})).unreadNotifications,
+    ).toBe(1);
+  });
 });
+
+async function insertComm(
+  t: Backend,
+  workspaceId: Id<"workspaces">,
+  caseId: Id<"cases">,
+  status: "failed" | "send_uncertain",
+): Promise<void> {
+  await t.run(async (ctx) =>
+    ctx.db.insert("communications", {
+      workspaceId,
+      caseId,
+      direction: "outbound",
+      participantType: "vendor",
+      agentMailInboxId: "inbox_dash_1",
+      agentMailThreadId: "thread_dash_1",
+      agentMailMessageId: undefined,
+      status,
+      fromEmail: "estate@example.com",
+      toEmails: ["vendor@example.com"],
+      subject: "Quote request",
+      textBody: "Please quote.",
+      aiDraftSource: false,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      providerDraftId: undefined,
+      providerMessageId: undefined,
+      lastError: undefined,
+      readAt: undefined,
+      sendAttempts: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }),
+  );
+}
