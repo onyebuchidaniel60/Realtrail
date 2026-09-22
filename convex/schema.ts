@@ -242,6 +242,11 @@ export default defineSchema({
     triageAttempts: v.optional(v.number()),
     triageFailedAt: v.optional(v.number()),
     triageError: v.optional(v.string()),
+    // Outbound send markers (Phase 8). sendAttempts counts provider send
+    // tries; undefined reads as 0. The pending_send → sending → sent /
+    // failed / send_uncertain lifecycle is the durable duplicate-send
+    // guard; the provider Idempotency-Key header is the second layer.
+    sendAttempts: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
