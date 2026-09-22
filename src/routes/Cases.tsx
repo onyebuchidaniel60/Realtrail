@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import type { CaseStatus, Category } from "../../convex/cases/stateMachine";
@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/common/ErrorState";
 import { QueryErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LoadingSkeleton } from "@/components/common/LoadingSkeleton";
 import { MetricCard } from "@/components/common/MetricCard";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import { CaseCardList } from "@/components/cases/CaseCard";
 import { CaseDetail, CaseDetailNotFound } from "@/components/cases/CaseDetail";
 import { CaseTable } from "@/components/cases/CaseTable";
@@ -67,9 +68,35 @@ function isNotFoundError(err: unknown): boolean {
   );
 }
 
+// Initial vendor filter from router state (Vendors → "Open related
+// cases"). Local state only — no URL persistence (deferred from 3-B-1).
+function initialVendorFilter(state: unknown): {
+  id: string;
+  name: string;
+} | null {
+  if (typeof state !== "object" || state === null) {
+    return null;
+  }
+  const { vendorId, vendorName } = state as {
+    vendorId?: unknown;
+    vendorName?: unknown;
+  };
+  if (typeof vendorId !== "string" || vendorId === "") {
+    return null;
+  }
+  return {
+    id: vendorId,
+    name:
+      typeof vendorName === "string" && vendorName !== ""
+        ? vendorName
+        : "Selected vendor",
+  };
+}
+
 export function CasesPage() {
   const { synced, userId } = useSyncStatus();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const caseIdParam = searchParams.get("caseId");
 
   const [searchInput, setSearchInput] = useState("");
@@ -78,6 +105,9 @@ export function CasesPage() {
   const [priority, setPriority] = useState<PriorityFilter>("ALL");
   const [propertyId, setPropertyId] = useState<string>("ALL");
   const [category, setCategory] = useState<"ALL" | Category>("ALL");
+  const [vendorFilter, setVendorFilter] = useState(() =>
+    initialVendorFilter(location.state),
+  );
   const [assignee, setAssignee] = useState<AssigneeFilter>("ALL");
   const [sort, setSort] = useState<SortMode>("recent");
   const [newCaseOpen, setNewCaseOpen] = useState(false);
@@ -174,6 +204,9 @@ export function CasesPage() {
 
   const visible = useMemo(() => {
     let items = accumulated;
+    if (vendorFilter !== null) {
+      items = items.filter((c) => c.vendorId === vendorFilter.id);
+    }
     if (assignee === "unassigned") {
       items = items.filter((c) => !c.assigneeId);
     }
@@ -185,7 +218,7 @@ export function CasesPage() {
       items = [...items].sort((a, b) => b.createdAt - a.createdAt);
     }
     return items;
-  }, [accumulated, assignee, sort]);
+  }, [accumulated, assignee, sort, vendorFilter]);
 
   const hasActiveFilters =
     debouncedSearch.trim() !== "" ||
@@ -193,6 +226,7 @@ export function CasesPage() {
     priority !== "ALL" ||
     propertyId !== "ALL" ||
     category !== "ALL" ||
+    vendorFilter !== null ||
     assignee !== "ALL";
 
   function clearFilters() {
@@ -202,6 +236,7 @@ export function CasesPage() {
     setPriority("ALL");
     setPropertyId("ALL");
     setCategory("ALL");
+    setVendorFilter(null);
     setAssignee("ALL");
     setSort("recent");
   }
@@ -346,6 +381,18 @@ export function CasesPage() {
 
           {/* TODO(filters): persist filter state in the URL for deep-linking
               filtered views. Currently local component state only. */}
+          {vendorFilter !== null && (
+            <div className="flex items-center gap-2 text-sm">
+              <StatusBadge>Vendor: {vendorFilter.name}</StatusBadge>
+              <button
+                type="button"
+                onClick={() => setVendorFilter(null)}
+                className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+              >
+                Clear vendor filter
+              </button>
+            </div>
+          )}
           {listResult === undefined ? (
             <LoadingSkeleton rows={5} />
           ) : visible.length === 0 ? (

@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ExternalLink, ListFilter, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -29,10 +29,18 @@ function contactFor(vendor: Doc<"vendors">): string {
 
 export function VendorsPage() {
   const { synced } = useSyncStatus();
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("ALL");
   const [drawer, setDrawer] = useState<DrawerState>(null);
+
+  function openRelatedCases(vendor: Doc<"vendors">) {
+    // Router state only — no URL persistence (deferred from Phase 3-B-1).
+    navigate("/cases", {
+      state: { vendorId: vendor._id, vendorName: vendor.name },
+    });
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchInput), 300);
@@ -95,6 +103,7 @@ export function VendorsPage() {
           vendors={vendors}
           onAdd={() => setDrawer({ mode: "add" })}
           onEdit={(vendor) => setDrawer({ mode: "edit", vendor })}
+          onOpenCases={openRelatedCases}
         />
       </QueryErrorBoundary>
 
@@ -117,10 +126,12 @@ function VendorsBody({
   vendors,
   onAdd,
   onEdit,
+  onOpenCases,
 }: {
   vendors: Doc<"vendors">[] | undefined;
   onAdd: () => void;
   onEdit: (vendor: Doc<"vendors">) => void;
+  onOpenCases: (vendor: Doc<"vendors">) => void;
 }) {
   if (vendors === undefined) {
     return <LoadingSkeleton rows={5} />;
@@ -212,7 +223,16 @@ function VendorsBody({
                     {vendor.source === "manual" ? "Manual" : "Firecrawl"}
                   </StatusBadge>
                 </td>
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-2.5 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => onOpenCases(vendor)}
+                    aria-label={`Open related cases for ${vendor.name}`}
+                    title="Open related cases"
+                    className="rounded-md p-1.5 hover:bg-accent"
+                  >
+                    <ListFilter className="size-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => onEdit(vendor)}
@@ -234,6 +254,7 @@ function VendorsBody({
             key={vendor._id}
             vendor={vendor}
             onEdit={() => onEdit(vendor)}
+            onOpenCases={() => onOpenCases(vendor)}
           />
         ))}
       </div>

@@ -14,9 +14,11 @@ export type VendorSummary = Pick<
 export function VendorCard({
   vendor,
   onEdit,
+  onOpenCases,
 }: {
   vendor: VendorSummary;
   onEdit?: () => void;
+  onOpenCases?: () => void;
 }) {
   const contact = vendor.email ?? vendor.phone;
   return (
@@ -60,6 +62,15 @@ export function VendorCard({
       <p className="text-sm text-muted-foreground">
         {[contact, vendor.location].filter(Boolean).join(" · ") || "No contact details"}
       </p>
+      {onOpenCases && (
+        <button
+          type="button"
+          onClick={onOpenCases}
+          className="self-start rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+        >
+          Open related cases
+        </button>
+      )}
     </div>
   );
 }

@@ -7,6 +7,12 @@ import { VendorsPage } from "./Vendors";
 
 const mockUseQuery = vi.hoisted(() => vi.fn());
 const mockMutate = vi.hoisted(() => vi.fn());
+const mockNavigate = vi.hoisted(() => vi.fn());
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("react-router-dom")>();
+  return { ...mod, useNavigate: () => mockNavigate };
+});
 
 vi.mock("@clerk/clerk-react", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true }),
@@ -64,6 +70,7 @@ function mockVendorQueries() {
 beforeEach(() => {
   mockUseQuery.mockReset();
   mockMutate.mockReset();
+  mockNavigate.mockReset();
   mockMutate.mockResolvedValue({ vendorId: "v1" });
   vendorRows = [makeVendor()];
   vendorsPending = false;
@@ -180,5 +187,29 @@ describe("VendorsPage", () => {
     vendorsPending = true;
     renderPage();
     expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+  });
+
+  it("table action navigates to cases filtered by vendor", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open related cases for Aqua Plumbing",
+      }),
+    );
+    expect(mockNavigate).toHaveBeenCalledWith("/cases", {
+      state: { vendorId: "v1", vendorName: "Aqua Plumbing" },
+    });
+  });
+
+  it("mobile card opens related cases with router state", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      screen.getByRole("button", { name: "Open related cases" }),
+    );
+    expect(mockNavigate).toHaveBeenCalledWith("/cases", {
+      state: { vendorId: "v1", vendorName: "Aqua Plumbing" },
+    });
   });
 });
