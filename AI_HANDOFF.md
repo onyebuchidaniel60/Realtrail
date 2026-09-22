@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 6 — AI Triage (complete). Phase 7 (Vendor discovery) pending.**
+**Phase 7 — Vendor Discovery (in progress). 7-A complete (backend). 7-B pending (Firecrawl credentials + live discovery test). 7-C pending (Vendors screen + discovery drawer UI).**
 
 ---
 
@@ -177,6 +177,7 @@ Application implementation (in progress):
 - Phase 6-A-routing: OpenRouter requests now include a provider object pinning routing to azure/swedencentral with allow_fallbacks: false and require_parameters: true. Fixed the previous misplacement of require_parameters (was top-level, now inside provider per OpenRouter's API shape).
 - Phase 6-B: Live OpenRouter wiring verified end-to-end. Human set OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_TRIAGE_MODEL, OPENAI_DRAFT_MODEL on the deployment. Isolated wrapper probe authenticated and returned valid structured output via Azure Sweden Central. Real inbound email triaged first-try: inboundEvents processed, communications marked triaged, case created NEW/completed/v1 with AI_TRIAGE_COMPLETED activity. No code changes (docs only).
 - Phase 6-C: AI Summary card in Case Detail (renders when aiTriageStatus is completed, pending, failed, or not_started). Review triage sheet with editable fields and "AI suggested" hints. acceptAiTriage mutation wired. CaseActionPanel primary action for NEW cases now opens the review sheet. Plain-text rendering enforced — AI output never renders as HTML. Test count: 346.
+- Phase 7-A: Added vendors, vendorResearch, vendorResearchResults tables. Firecrawl client wrapper (search + scrape) with test seams. Deterministic query construction (no internal case data leaked). Deterministic rank bands (no numeric scoring). Contact extraction from scraped markdown. vendors.discover action with 60s per-case rate limit. vendors.save, vendors.update, vendors.list queries/mutations. vendorResearch.getResearch query. All tests use mocked Firecrawl. Test count: 403.
 
 ---
 
@@ -373,6 +374,16 @@ src/components/cases/AISummaryCard.tsx
 src/components/cases/ReviewTriageSheet.tsx
 ```
 
+Phase 7-A vendor discovery backend:
+
+```text
+convex/lib/providers/firecrawl.ts
+convex/lib/providers/vendorSearch.ts
+convex/lib/providers/vendorNormalize.ts
+convex/vendors.ts
+convex/vendors/discover.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -492,6 +503,12 @@ Watch especially:
 - AI output is rendered as plain text only. Never use dangerouslySetInnerHTML for AI-generated content. This is a security requirement (§16 in ARCHITECTURE.md).
 - The "AI suggested" hints are advisory. Accepting triage replaces AI values with the human-edited form values — the original aiTriageOutput is preserved on the case for audit.
 - Known infrastructure flake: test:once intermittently fails on frontend userEvent tests at maxWorkers: 1 (documented from Phase 6-B). Investigation queued as a follow-up task. Not a code regression.
+- FIRECRAWL_API_KEY is not set. Live discovery will fail until Phase 7-B configures it.
+- Vendor search queries must never include internal case data (title, description, notes, resident contact). The buildVendorSearchQuery helper enforces this — do not bypass it.
+- Rank bands are deterministic; do not introduce numeric or model-based vendor scoring.
+- Scraped content is untrusted. Evidence strings are truncated and rendered as plain text in the UI.
+- The discovery rate limit is a 60s per-case cooldown, implemented as a check on existing pending research. No new infrastructure.
+- Vendor list is capped at 200 rows without pagination. If a workspace exceeds this, pagination needs to be added.
 
 ---
 
@@ -514,4 +531,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 7-A — Vendor discovery backend. Scope: vendors, vendorResearch, vendorResearchResults tables; Firecrawl client wrapper; vendors.discover action; vendors.save mutation; vendors.list query. Firecrawl API key required (human step in Phase 7-B).**
+**Phase 7-B — live Firecrawl setup (human step). Human creates a Firecrawl account, provides FIRECRAWL_API_KEY. Agent sets it as a Convex env var, runs a live discovery test against a real case, verifies vendorResearchResults contain real providers.**
