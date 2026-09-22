@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** OpenAI Responses API for triage and drafts (model ids via OPENAI_TRIAGE_MODEL / OPENAI_DRAFT_MODEL)
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T07:29:29Z
+- **Last updated:** 2026-09-22T07:59:22Z
 
 ## Log
 
@@ -126,3 +126,6 @@ Phase 8-A: outbound drafting and send backend (no UI, no live email yet). AI dra
 
 ### 2026-09-22 - ec22766
 Phase 8-C: end-to-end AI-assisted outbound email from the case view. A draft composer with AI drafting, manual editing, and a send-confirmation gate that is the only approval path; a communications section renders the plain-text history with delivery states; Contact vendor and Contact resident buttons open the flow. Live send had already been verified in 8-B. Covered with 29 new tests (suite total 521). Convex features: queries, mutations, realtime queries (`src/components/cases/DraftComposerSheet.tsx`, `src/components/cases/SendConfirmationDialog.tsx`, `src/components/cases/CommunicationsSection.tsx`). Handoff updated (ec22766).
+
+### 2026-09-22 - 5f66900
+Phase 9-A: resident confirmation backend separating vendor completion from verified resolution. Signed one-time tokens (hash-only storage, 72h default expiry) with a request mutation that moves cases to awaiting confirmation and emails the link, plus an internal consume mutation resolving yes to RESOLVED and no back to work in progress. Covered with 26 new tests (suite total 547). Convex features: schema, tables, indexes, queries, mutations (`convex/cases/confirmation.ts`, `convex/lib/confirmationToken.ts`). Handoff updated (5f66900).
