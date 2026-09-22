@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 6 — AI Triage (in progress). Sub-task 6-A complete (backend triage). 6-B pending human OpenAI setup. 6-C pending review UI.**
+**Phase 6 — AI Triage (in progress). 6-A, 6-A-correction, 6-A-routing, 6-B complete. 6-C pending (AI review UI).**
 
 ---
 
@@ -175,6 +175,7 @@ Application implementation (in progress):
 - Phase 6-A: OpenAI client wrapper (Responses API, structured output, mockable). Triage prompt with injection defenses. ai.triageInbound action integrated into the inbound pipeline. cases.acceptAiTriage mutation. Referential ID checks drop invalid AI candidates. Triaged cases start in status NEW with aiTriageStatus completed. Test count: 324.
 - Phase 6-A-correction: OpenAI wrapper is now provider-neutral via OPENAI_BASE_URL. OpenRouter is supported (adds HTTP-Referer, X-OpenRouter-Title headers and require_parameters: true when the base URL is openrouter.ai). Vitest maxWorkers pinned to 1 for deterministic full-suite runs.
 - Phase 6-A-routing: OpenRouter requests now include a provider object pinning routing to azure/swedencentral with allow_fallbacks: false and require_parameters: true. Fixed the previous misplacement of require_parameters (was top-level, now inside provider per OpenRouter's API shape).
+- Phase 6-B: Live OpenRouter wiring verified end-to-end. Human set OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_TRIAGE_MODEL, OPENAI_DRAFT_MODEL on the deployment. Isolated wrapper probe authenticated and returned valid structured output via Azure Sweden Central. Real inbound email triaged first-try: inboundEvents processed, communications marked triaged, case created NEW/completed/v1 with AI_TRIAGE_COMPLETED activity. No code changes (docs only).
 
 ---
 
@@ -478,6 +479,8 @@ Watch especially:
 - Test flakes are resolved by maxWorkers: 1. Do not raise it without evidence that fork-spawn flakes are gone.
 - OpenRouter routing is pinned to azure/swedencentral with allow_fallbacks: false. If that provider is unavailable, triage fails and retries (existing retry path). Do not add fallback providers without explicit human approval — deterministic provider identity is intentional.
 - Provider slug "azure/swedencentral" was verified against OpenRouter's UI by the human. If OpenRouter renames the slug, requests will fail; re-verify at https://openrouter.ai/openai/gpt-4o-mini.
+- Live OpenRouter credentials set on the Convex deployment (by the human, not the agent). If triage stops working, first check OpenRouter credits (402) and provider availability (azure/swedencentral).
+- Provider routing has allow_fallbacks: false. If Azure Sweden Central is unavailable, triage fails and retries up to 3 times.
 
 ---
 
@@ -500,4 +503,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 6-B — live OpenRouter setup. Human provides OPENAI_API_KEY (sk-or-v1-...). Agent sets OPENAI_BASE_URL=https://openrouter.ai/api/v1, OPENAI_API_KEY, OPENAI_TRIAGE_MODEL=openai/gpt-4o-mini, OPENAI_DRAFT_MODEL=openai/gpt-4o-mini as Convex env vars. Sends a real inbound email, verifies triage creates a case with valid suggestions via the Azure Sweden Central route.**
+**Phase 6-C — AI review UI. Scope: AI Summary card in Case Detail when aiTriageStatus is completed; 'Review triage' sheet with editable fields; acceptAiTriage mutation; wire the CaseActionPanel primary action for NEW cases to open the review sheet.**
