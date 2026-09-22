@@ -276,11 +276,13 @@ http.route({
   path: "/confirm",
   method: "GET",
   handler: httpAction(async (_ctx, request) => {
-    let rawToken: string | null = null;
+    let rawToken: string | null;
     try {
       rawToken = new URL(request.url).searchParams.get("token");
     } catch {
-      rawToken = null;
+      return htmlResponse(
+        confirmPageShell("Realtrail — Issue confirmation", invalidLinkInner()),
+      );
     }
     if (rawToken !== null && TOKEN_PATTERN.test(rawToken)) {
       return htmlResponse(
