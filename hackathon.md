@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T02:06:45Z
+- **Last updated:** 2026-09-22T02:35:16Z
 
 ## Log
 
@@ -117,3 +117,6 @@ Phase 7-A: vendor discovery backend. New tables for the vendor directory and res
 
 ### 2026-09-22 - c3d6a0a
 Phase 7-B: live vendor discovery verified. With the provider key set on the deployment, an isolated search probe returned real results; a discovery run against the triaged water-pressure case then completed with a real ranked provider, extracted contact details, and bounded evidence. No code changes — verification and docs only. Handoff updated (c3d6a0a).
+
+### 2026-09-22 - 33c33fd
+Phase 7-C: vendor UI completing Phase 7. A Vendors screen with table and mobile cards, search, category filter, and an add/edit drawer; a vendor section in Case Detail; and a discovery drawer that searches, shows rank-banded evidence cards, and saves plus auto-links in one flow. Covered with 32 new tests (suite total 435). Handoff updated (33c33fd) (`src/routes/Vendors.tsx`, `src/components/vendors/`, `src/components/cases/VendorDiscoveryDrawer.tsx`).
