@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 8 — AI Drafting and AgentMail Sending (complete). 8-A, 8-B, 8-C done.**
+**Phase 9 — Resolution Confirmation (in progress). 9-A complete. 9-B pending (public HTTP /confirm). 9-C pending (UI).**
 
 ---
 
@@ -183,6 +183,7 @@ Application implementation (in progress):
 - Phase 8-A: Outbound drafting + send backend (no UI, no live sends — all provider calls mocked). sendMessage wired in the AgentMail wrapper (POST /v0/inboxes/{id}/messages/send, Bearer, 30s timeout, clientId sent as the Idempotency-Key header per current docs; timeout/malformed-200 map to uncertain errors via isUncertainSendError). Draft prompt module with injection defenses (untrusted_thread delimiters) and do-not-invent rules. draftEmail in the OpenAI wrapper (strict {subject, textBody} schema, model from OPENAI_DRAFT_MODEL). ai.generateDraft internalAction (vendor recipient resolves to stored vendor email; resident recipient validated; prior 5 messages as context; persists draft + DRAFT_GENERATED activity; never sends). communications.createDraftRecord (manual-draft path, DRAFT_CREATED/DRAFT_GENERATED). communications.approveSend (human gate: draft-only CONFLICT guard, closed-case rejection, schedules the worker, no provider call inside). email.sendPendingCommunication worker (pending_send → sending claim → sent with provider ids + EMAIL_SENT; 429/5xx retry 3x at 60s; 4xx/config fail fast; timeout/unknown → send_uncertain with no auto-retry). listByCase query (chronological, no provider IDs). Added sendAttempts to communications. Test count: 492 (was 435; +57).
 - Phase 8-B: Live send verified end-to-end on eu-west-dev. Temp module (convex/tmpVerifyOutbound.ts, deleted after) seeded one pending_send row on the smoke workspace and invoked the real worker once via CLI. Observed DB transitions: pending_send → sending → sent, sendAttempts stayed 0, providerMessageId + agentMailMessageId + agentMailThreadId populated, lastError cleared, case.lastOutboundAt refreshed, exactly one EMAIL_SENT activity, zero EMAIL_SEND_UNCERTAIN. Live send verified against target mailbox (operator-supplied): human confirmed receipt with matching From (workspace inbox), To, Date, and Subject, no delay. No code, schema, or test changes (docs-only task); temp module deleted; full suite still 492/492.
 - Phase 8-C: Draft + send UI on Case Detail. requestAiDraft public mutation (membership, closed-case CONFLICT, recipient-shape validation, 30s per-case+recipient RATE_LIMITED cooldown, schedules generateDraft). DraftComposerSheet (blank/manual compose, Draft-with-AI with arrival adoption, read-only recipient, AI chip, save-then-send flow; never calls approveSend). SendConfirmationDialog (server-row To, preview with Show-full, unsent-warning, sole approveSend call site with CONFLICT toast). CommunicationsSection (chronological plain-text history, 7-status chips, send_uncertain Needs-review, Open-draft, empty state with contact buttons). Contact vendor button enabled when linked; Contact resident panel action added. Test count: 521 (was 492; +29).
+- Phase 9-A: Confirmation token infrastructure + consume flow (no HTTP, no UI, no reminders). confirmationTokens table added (decision optional at issue). Pure sync SHA-256 helper (vectors + subtle cross-check green) + token module (32-byte base64url, hash-only storage, https-only link builder). requestConfirmation: WIP-only, reporter/override email, supersedes prior unused tokens, TTL env with 72h fallback, PUBLIC_APP_URL fail-closed, mints token + pending_send email + CONFIRMATION_REQUESTED + schedules send. consumeConfirmation (internal): unknown/expired → TOKEN_EXPIRED, used → TOKEN_USED, non-awaiting case → CONFLICT; yes → RESOLVED/resident, no → WIP; records decision + resident activity. Race safety via same-document serialization (no lock). Test count: 547 (was 521; +26).
 
 ---
 
@@ -416,6 +417,14 @@ src/components/cases/SendConfirmationDialog.tsx
 src/components/cases/CommunicationsSection.tsx
 ```
 
+Phase 9-A confirmation backend:
+
+```text
+convex/lib/confirmationToken.ts
+convex/lib/sha256.ts
+convex/cases/confirmation.ts
+```
+
 Recommended application structure:
 
 ```text
@@ -562,6 +571,12 @@ Watch especially:
 - send_uncertain items display a "Needs review" label; no automatic resend path exists in the UI.
 - Generated api refs are Proxy objects without referential stability (verified: a === b is false, no enumerable keys). Never dispatch test mocks by ref identity — route useMutation/useQuery mocks by args shape, or stub the api module for stable refs (CaseDetail.contact.test.tsx pattern, needed because cases.get and listByCase share the {caseId} shape).
 - Sheets that sync async rows into form state: remount per session via key and adopt rows during render (sanctioned alternative to setState-in-effect). The linter also forbids ref reads during render — capture snapshots (e.g. known ID sets) in event handlers into state instead.
+- confirmationTokens stores only the hash; raw tokens live only in the outbound email body.
+- TTL is read from REALTRAIL_CONFIRMATION_TOKEN_TTL_HOURS; fallback to 72 if unset.
+- Re-requesting confirmation invalidates prior unused tokens.
+- consumeConfirmation is internal — never exposed to the client; the public surface is the POST /confirm HTTP endpoint (9-B).
+- consumeConfirmation rejects with TOKEN_EXPIRED for both unknown and expired tokens (no existence leakage).
+- "decision" on confirmationTokens is optional at issue time and set at consume time.
 
 ---
 
@@ -584,4 +599,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 9 — Resolution Confirmation.**
+**Phase 9-B — public GET/POST /confirm endpoints with signature verification.**
