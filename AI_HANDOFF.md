@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 7 — Vendor Discovery (in progress). 7-A complete (backend). 7-B pending (Firecrawl credentials + live discovery test). 7-C pending (Vendors screen + discovery drawer UI).**
+**Phase 7 — Vendor Discovery (in progress). 7-A, 7-B complete (live discovery verified). 7-C pending (Vendors screen + discovery drawer UI).**
 
 ---
 
@@ -178,6 +178,7 @@ Application implementation (in progress):
 - Phase 6-B: Live OpenRouter wiring verified end-to-end. Human set OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_TRIAGE_MODEL, OPENAI_DRAFT_MODEL on the deployment. Isolated wrapper probe authenticated and returned valid structured output via Azure Sweden Central. Real inbound email triaged first-try: inboundEvents processed, communications marked triaged, case created NEW/completed/v1 with AI_TRIAGE_COMPLETED activity. No code changes (docs only).
 - Phase 6-C: AI Summary card in Case Detail (renders when aiTriageStatus is completed, pending, failed, or not_started). Review triage sheet with editable fields and "AI suggested" hints. acceptAiTriage mutation wired. CaseActionPanel primary action for NEW cases now opens the review sheet. Plain-text rendering enforced — AI output never renders as HTML. Test count: 346.
 - Phase 7-A: Added vendors, vendorResearch, vendorResearchResults tables. Firecrawl client wrapper (search + scrape) with test seams. Deterministic query construction (no internal case data leaked). Deterministic rank bands (no numeric scoring). Contact extraction from scraped markdown. vendors.discover action with 60s per-case rate limit. vendors.save, vendors.update, vendors.list queries/mutations. vendorResearch.getResearch query. All tests use mocked Firecrawl. Test count: 403.
+- Phase 7-B: Live Firecrawl wired. FIRECRAWL_API_KEY set as Convex env var (by human). End-to-end discovery verified against a real case: search query constructed from category + locality, results normalized with rank bands, contact info extracted where available. No internal case data leaked to Firecrawl.
 
 ---
 
@@ -509,6 +510,8 @@ Watch especially:
 - Scraped content is untrusted. Evidence strings are truncated and rendered as plain text in the UI.
 - The discovery rate limit is a 60s per-case cooldown, implemented as a check on existing pending research. No new infrastructure.
 - Vendor list is capped at 200 rows without pagination. If a workspace exceeds this, pagination needs to be added.
+- Live Firecrawl credentials set on the Convex deployment. If discovery stops working, check Firecrawl credits and API status first.
+- Discovery is capped at 3 scraped results per run (rate limit + scraper time). If more results are needed, this is a future enhancement.
 
 ---
 
@@ -531,4 +534,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 7-B — live Firecrawl setup (human step). Human creates a Firecrawl account, provides FIRECRAWL_API_KEY. Agent sets it as a Convex env var, runs a live discovery test against a real case, verifies vendorResearchResults contain real providers.**
+**Phase 7-C — Vendors screen + discovery drawer UI. Scope: replace Vendors.tsx placeholder with a list of saved vendors, filter by category, search by name, add/edit vendor drawer. Add a 'Find a vendor' button to Case Detail's vendor section that opens a discovery drawer showing vendorResearchResults. Save-to-vendors action per result. Mobile responsive.**
