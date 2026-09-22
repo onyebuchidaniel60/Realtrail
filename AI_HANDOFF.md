@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 9 — Resolution Confirmation (complete). 9-A, 9-B, 9-C, 9-D done.**
+**Phase 10 — Reminder and Attention System (complete).**
 
 ---
 
@@ -186,6 +186,7 @@ Application implementation (in progress):
 - Phase 9-A: Confirmation token infrastructure + consume flow (no HTTP, no UI, no reminders). confirmationTokens table added (decision optional at issue). Pure sync SHA-256 helper (vectors + subtle cross-check green) + token module (32-byte base64url, hash-only storage, https-only link builder). requestConfirmation: WIP-only, reporter/override email, supersedes prior unused tokens, TTL env with 72h fallback, PUBLIC_APP_URL fail-closed, mints token + pending_send email + CONFIRMATION_REQUESTED + schedules send. consumeConfirmation (internal): unknown/expired → TOKEN_EXPIRED, used → TOKEN_USED, non-awaiting case → CONFLICT; yes → RESOLVED/resident, no → WIP; records decision + resident activity. Race safety via same-document serialization (no lock). Test count: 547 (was 521; +26).
 - Phase 9-B: Public GET/POST /confirm on the existing httpRouter (webhook untouched). GET renders the Yes/No page for well-formed tokens without touching the database (missing/malformed → invalid-link page, still 200). POST validates form shape + token pattern, consumes via the internal mutation, renders byte-identical generic pages for every failure (unknown/expired/used/conflict/malformed share one template). Headers: no-referrer, no-store (+no-cache on POST), nosniff, strict CSP, no scripts. Raw tokens never logged (code-level warn only), never stored, never echoed after consumption. Test count: 566 (was 547; +19).
 - Phase 9-C/9-D: Manager confirmation UI + live click verification. getConfirmationState read projection (pending timestamps, last decision; NOT_FOUND hiding). ConfirmationPanel (request/resend with ConfirmDialog, pending state, resolved blocks; never renders token or URL). Mounted in the Case Detail action rail; timeline icons + labels for the three confirmation events. Live end-to-end on eu-west-dev: real requestConfirmation to the operator-supplied mailbox, operator clicked Yes with no browser warnings, case reached RESOLVED with resolvedBy "resident", exactly one CONFIRMATION_CONFIRMED, zero reuse, zero send_uncertain. Test count: 587 (was 566; +21).
+- Phase 10: Reminder and Attention System. Pure reminders helper (env-driven 4/24/72h cadence, deterministic dedupe keys, due predicates). notifications table with dedupeKey index + case scheduling markers. Resident chain (cycles at 1×/2× reminder delay, escalation at escalation delay) and vendor follow-up actions — notification-only, state re-checked, dedupe-idempotent. Hooks: requestConfirmation arms 3 cycles; vendor send arms follow-up on VENDOR_CONTACTED. Read surface (list/unreadCount/markRead/markAllRead capped at 200). Dashboard: env thresholds, failed/uncertain attention trigger (one per case), unreadNotifications count. Sidebar badge + drawer (no route). Test count: 631 (was 587; +44).
 
 ---
 
@@ -433,6 +434,17 @@ Phase 9-C manager confirmation UI:
 src/components/cases/ConfirmationPanel.tsx
 ```
 
+Phase 10 reminders and notifications:
+
+```text
+convex/lib/reminders.ts
+convex/notifications/internal.ts
+convex/notifications/reminders.ts
+convex/notifications/queries.ts
+convex/notifications/mutations.ts
+src/components/notifications/*
+```
+
 convex/http.ts now hosts three routes: POST /webhooks/agentmail, GET /confirm, POST /confirm.
 
 Recommended application structure:
@@ -594,6 +606,13 @@ Watch especially:
 - GET /confirm does not query the database. Do not add a lookup "for validation" — it would introduce a timing oracle.
 - Phase 13 audit candidate: `requireResourceWorkspaceMembership` throws FORBIDDEN not NOT_FOUND, inconsistent with the existence-hiding convention. Not exploitable today; deferred.
 - Phase 12/13 candidate: consumeConfirmation passes "owner" as a placeholder role to the state machine. Add a "resident" actor type so the confirmation path is semantically honest.
+- Reminders are notifications, not auto-sends. Do not call sendPendingCommunication from any reminder path.
+- All reminder jobs re-check case.status before acting. This is the idempotency-and-cancellation mechanism — resolution implicitly silences pending reminders.
+- Dedupe key format: `<caseId>:<type>:<cycle>`. Do not change it without a migration plan.
+- Thresholds come from REALTRAIL_* env vars with 4/24/72h fallbacks. Do not hardcode.
+- markAllRead caps at 200 unread. Add a batched implementation only if a real workspace exceeds that.
+- Sidebar badge uses notifications.unreadCount; do not cache client-side.
+- The old dashboard.get hardcoded 4h/24h thresholds are now env-driven. Note this for regression checks if reminders look wrong.
 - Deployment env (corrected 9-D — earlier notes implied these were set; they were not): PUBLIC_APP_URL is REQUIRED and was set on eu-west-dev during 9-D (value: the deployment's public convex.site host; never write it here). REALTRAIL_CONFIRMATION_TOKEN_TTL_HOURS is OPTIONAL with a 72h code fallback (still unset — fallback applies). The Phase 10 reminder vars (REALTRAIL_VENDOR_FOLLOWUP_HOURS, REALTRAIL_RESIDENT_REMINDER_HOURS, REALTRAIL_ESCALATION_HOURS) are OPTIONAL with code fallbacks; dashboard.get still hardcodes 4h/24h until Phase 10 reads them. Set them before Phase 10 verification or the fallback behavior is what ships.
 
 ---
@@ -617,4 +636,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 10 — Reminder and Attention System.**
+**Phase 11 — Properties / Vendors / Settings Polish.**
