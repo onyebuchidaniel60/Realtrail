@@ -241,7 +241,8 @@ export const consumeConfirmation = internalMutation({
     // from the token itself (the resident is unauthenticated). The
     // "owner" role stands in purely to validate the from→to pair —
     // residents are not members and carry no role.
-    const nextStatus = args.decision === "yes" ? "RESOLVED" : "WORK_IN_PROGRESS";
+    const nextStatus: "RESOLVED" | "WORK_IN_PROGRESS" =
+      args.decision === "yes" ? "RESOLVED" : "WORK_IN_PROGRESS";
     const allowed = canTransition(record.status, nextStatus, "owner");
     if (!allowed.ok) {
       appError(allowed.code, allowed.message);

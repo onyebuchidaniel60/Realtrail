@@ -9,6 +9,7 @@
  */
 
 import type * as buildings from "../buildings.js";
+import type * as cases_confirmation from "../cases/confirmation.js";
 import type * as cases_mutations from "../cases/mutations.js";
 import type * as cases_number from "../cases/number.js";
 import type * as cases_queries from "../cases/queries.js";
@@ -24,6 +25,7 @@ import type * as email_triage from "../email/triage.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_authorization from "../lib/authorization.js";
+import type * as lib_confirmationToken from "../lib/confirmationToken.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_providers_agentmail from "../lib/providers/agentmail.js";
 import type * as lib_providers_draftPrompt from "../lib/providers/draftPrompt.js";
@@ -33,6 +35,7 @@ import type * as lib_providers_svix from "../lib/providers/svix.js";
 import type * as lib_providers_triagePrompt from "../lib/providers/triagePrompt.js";
 import type * as lib_providers_vendorNormalize from "../lib/providers/vendorNormalize.js";
 import type * as lib_providers_vendorSearch from "../lib/providers/vendorSearch.js";
+import type * as lib_sha256 from "../lib/sha256.js";
 import type * as properties from "../properties.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
@@ -50,6 +53,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   buildings: typeof buildings;
+  "cases/confirmation": typeof cases_confirmation;
   "cases/mutations": typeof cases_mutations;
   "cases/number": typeof cases_number;
   "cases/queries": typeof cases_queries;
@@ -65,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/authorization": typeof lib_authorization;
+  "lib/confirmationToken": typeof lib_confirmationToken;
   "lib/errors": typeof lib_errors;
   "lib/providers/agentmail": typeof lib_providers_agentmail;
   "lib/providers/draftPrompt": typeof lib_providers_draftPrompt;
@@ -74,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "lib/providers/triagePrompt": typeof lib_providers_triagePrompt;
   "lib/providers/vendorNormalize": typeof lib_providers_vendorNormalize;
   "lib/providers/vendorSearch": typeof lib_providers_vendorSearch;
+  "lib/sha256": typeof lib_sha256;
   properties: typeof properties;
   units: typeof units;
   users: typeof users;
