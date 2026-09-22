@@ -4,6 +4,8 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { EmptyState } from "@/components/common/EmptyState";
+import { QueryErrorBoundary } from "@/components/common/ErrorBoundary";
+import { ErrorState } from "@/components/common/ErrorState";
 import { LoadingSkeleton } from "@/components/common/LoadingSkeleton";
 import {
   StatusBadge,
@@ -386,6 +388,18 @@ function UnitDialog({
 }
 
 export function PropertiesPage() {
+  return (
+    <QueryErrorBoundary
+      fallback={(_error, reset) => (
+        <ErrorState message="Could not load properties." onRetry={reset} />
+      )}
+    >
+      <PropertiesBody />
+    </QueryErrorBoundary>
+  );
+}
+
+function PropertiesBody() {
   const { synced } = useSyncStatus();
   const properties = useQuery(api.properties.list, synced ? {} : "skip");
 

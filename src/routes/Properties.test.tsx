@@ -154,6 +154,26 @@ describe("PropertiesPage", () => {
     expect(seen).toContainEqual({ buildingId: "b2" });
   });
 
+  it("renders an error state when the properties query fails", () => {
+    mockUseQuery.mockImplementation(() => {
+      throw new Error("query failed");
+    });
+    const consoleSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      render(<PropertiesPage />);
+      expect(
+        screen.getByText("Could not load properties."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Retry" }),
+      ).toBeInTheDocument();
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it("opens the add-property drawer", async () => {
     const user = userEvent.setup();
     mockQueries({ properties: [PROP_A] });
