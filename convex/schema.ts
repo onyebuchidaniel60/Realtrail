@@ -272,4 +272,73 @@ export default defineSchema({
     .index("by_providerEventId", ["providerEventId"])
     .index("by_providerMessageId", ["providerMessageId"])
     .index("by_processingStatus", ["processingStatus"]),
+
+  vendors: defineTable({
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+    serviceCategories: v.array(
+      v.union(
+        v.literal("plumbing"),
+        v.literal("electrical"),
+        v.literal("power_generator"),
+        v.literal("water"),
+        v.literal("hvac"),
+        v.literal("security_access"),
+        v.literal("cleaning"),
+        v.literal("structural"),
+        v.literal("appliance"),
+        v.literal("common_area"),
+        v.literal("other"),
+      ),
+    ),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    website: v.optional(v.string()),
+    location: v.optional(v.string()),
+    source: v.union(v.literal("manual"), v.literal("firecrawl")),
+    sourceUrl: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_workspaceId_and_createdAt", ["workspaceId", "createdAt"]),
+
+  vendorResearch: defineTable({
+    workspaceId: v.id("workspaces"),
+    caseId: v.id("cases"),
+    query: v.string(),
+    locationContext: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("completed"),
+      v.literal("failed"),
+    ),
+    errorMessage: v.optional(v.string()),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_caseId", ["caseId"])
+    .index("by_workspaceId_and_createdAt", ["workspaceId", "createdAt"])
+    .index("by_status", ["status"]),
+
+  vendorResearchResults: defineTable({
+    workspaceId: v.id("workspaces"),
+    researchId: v.id("vendorResearch"),
+    providerName: v.string(),
+    website: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    services: v.array(v.string()),
+    location: v.optional(v.string()),
+    sourceUrl: v.string(),
+    // Bounded plain-text excerpt of scraped content (untrusted).
+    evidence: v.optional(v.string()),
+    rankBand: v.union(
+      v.literal("high_relevance"),
+      v.literal("relevant"),
+      v.literal("other"),
+    ),
+    fetchedAt: v.number(),
+  }).index("by_researchId", ["researchId"]),
 });
