@@ -8,6 +8,10 @@ import { EMAIL_PATTERN } from "../cases/mutations";
 
 const MAX_SUBJECT_CHARS = 200;
 const MAX_BODY_CHARS = 10000;
+const MAX_INSTRUCTIONS_CHARS = 500;
+// Cooldown between AI draft requests for the same case + recipient.
+// Guard against double clicks, not a billing control.
+const DRAFT_COOLDOWN_MS = 30_000;
 
 function validatedSubject(subject: string): string {
   const trimmed = subject.trim();
@@ -253,6 +257,114 @@ export const createDraftRecord = mutation({
       createdAt: now,
     });
     return { communicationId };
+  },
+});
+
+// Public trigger for AI drafting (Phase 8-C). generateDraft is an
+// internal action, so the frontend cannot invoke it directly. This
+// mutation validates intent (membership, closed-case, recipient shape,
+// cooldown) and schedules the worker — no external API call inside,
+// same mutation → schedule pattern as approveSend.
+export const requestAiDraft = mutation({
+  args: {
+    caseId: v.id("cases"),
+    recipientType: v.union(v.literal("vendor"), v.literal("resident")),
+    recipientId: v.optional(v.id("vendors")),
+    recipientEmail: v.optional(v.string()),
+    instructions: v.optional(v.string()),
+  },
+  returns: v.object({ scheduled: v.literal(true) }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const record = await ctx.db.get("cases", args.caseId);
+    if (record === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    // Existence-hiding (cases convention): no membership reads as
+    // NOT_FOUND, never FORBIDDEN.
+    const membership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspaceId_and_userId", (q) =>
+        q.eq("workspaceId", record.workspaceId).eq("userId", user._id),
+      )
+      .unique();
+    if (membership === null) {
+      appError("NOT_FOUND", "Case not found.");
+    }
+    if (record.status === "CLOSED") {
+      appError("CONFLICT", "Cannot draft for a closed case.");
+    }
+    // Recipient consistency mirrors generateDraft's server-side
+    // derivation: vendors resolve by id, residents by validated email.
+    let expectedEmail: string | undefined;
+    if (args.recipientType === "vendor") {
+      if (args.recipientId === undefined) {
+        appError(
+          "VALIDATION_ERROR",
+          "Vendor recipient requires a vendor id.",
+          "recipientId",
+        );
+      }
+      const vendor = await ctx.db.get("vendors", args.recipientId);
+      if (vendor === null || vendor.workspaceId !== record.workspaceId) {
+        appError("NOT_FOUND", "Vendor not found.");
+      }
+      expectedEmail = vendor.email;
+    } else {
+      if (
+        args.recipientEmail === undefined ||
+        !EMAIL_PATTERN.test(args.recipientEmail.trim())
+      ) {
+        appError(
+          "VALIDATION_ERROR",
+          "Resident recipient requires a valid email address.",
+          "recipientEmail",
+        );
+      }
+      expectedEmail = args.recipientEmail.trim();
+    }
+    if (
+      args.instructions !== undefined &&
+      args.instructions.length > MAX_INSTRUCTIONS_CHARS
+    ) {
+      appError(
+        "VALIDATION_ERROR",
+        "Manager instructions must be at most 500 characters.",
+        "instructions",
+      );
+    }
+    // Cooldown: one AI draft per case + recipient per 30 seconds. Double
+    // clicks and impatient retries observe the fresh draft row and get
+    // RATE_LIMITED instead of scheduling duplicate model calls.
+    const now = Date.now();
+    const recent = await ctx.db
+      .query("communications")
+      .withIndex("by_caseId", (q) => q.eq("caseId", record._id))
+      .order("desc")
+      .take(20);
+    const fresh = recent.some(
+      (row) =>
+        row.status === "draft" &&
+        row.aiDraftSource === true &&
+        row.participantType === args.recipientType &&
+        row.createdAt > now - DRAFT_COOLDOWN_MS &&
+        (expectedEmail === undefined ||
+          row.toEmails.includes(expectedEmail)),
+    );
+    if (fresh) {
+      appError(
+        "RATE_LIMITED",
+        "A draft was just requested. Wait a few seconds and retry.",
+      );
+    }
+    await ctx.scheduler.runAfter(0, internal.email.draft.generateDraft, {
+      caseId: args.caseId,
+      recipientType: args.recipientType,
+      recipientId: args.recipientId,
+      recipientEmail: args.recipientEmail,
+      instructions: args.instructions,
+    });
+    return { scheduled: true as const };
   },
 });
 

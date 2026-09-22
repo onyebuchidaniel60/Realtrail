@@ -1,10 +1,11 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import schema from "../schema";
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { __setDraftMessageForTests } from "../lib/providers/openai";
 
 const modules = import.meta.glob("/convex/**/*.ts");
 
@@ -554,5 +555,135 @@ describe("communications.approveSend", () => {
     await expect(
       a.authed.mutation(api.email.mutations.approveSend, { communicationId }),
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+});
+
+async function insertVendor(
+  t: Backend,
+  workspaceId: Id<"workspaces">,
+): Promise<Id<"vendors">> {
+  return await t.run(async (ctx) =>
+    ctx.db.insert("vendors", {
+      workspaceId,
+      name: "Aqua Fix Ltd",
+      serviceCategories: ["plumbing"],
+      email: "vendor@example.com",
+      phone: undefined,
+      website: undefined,
+      location: undefined,
+      source: "manual",
+      sourceUrl: undefined,
+      notes: undefined,
+      createdAt: 1_757_772_000_000,
+      updatedAt: 1_757_772_000_000,
+    }),
+  );
+}
+
+describe("communications.requestAiDraft", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key";
+    process.env.OPENAI_DRAFT_MODEL = "test-model";
+    __setDraftMessageForTests(async () => ({
+      subject: "AI quote request",
+      textBody: "Hello, please quote.",
+    }));
+  });
+
+  afterEach(() => {
+    __setDraftMessageForTests(undefined);
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_DRAFT_MODEL;
+  });
+
+  test("schedules the draft worker, which creates an AI draft row", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "req");
+    await ensureInbox(t, workspaceId);
+    const result = await authed.mutation(api.email.mutations.requestAiDraft, {
+      caseId,
+      recipientType: "resident",
+      recipientEmail: "resident@example.com",
+    });
+    expect(result).toEqual({ scheduled: true });
+    // Nothing persisted yet — the worker runs after the schedule fires.
+    expect(
+      await t.run(async (ctx) => ctx.db.query("communications").collect()),
+    ).toHaveLength(0);
+    await t.finishAllScheduledFunctions(async () => {});
+    const rows = await t.run(async (ctx) =>
+      ctx.db.query("communications").collect(),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      caseId,
+      direction: "outbound",
+      participantType: "resident",
+      status: "draft",
+      aiDraftSource: true,
+      toEmails: ["resident@example.com"],
+    });
+  });
+
+  test("rate-limits a second immediate request for the same recipient", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "ratelimit");
+    await ensureInbox(t, workspaceId);
+    const vendorId = await insertVendor(t, workspaceId);
+    await authed.mutation(api.email.mutations.requestAiDraft, {
+      caseId,
+      recipientType: "vendor",
+      recipientId: vendorId,
+    });
+    await t.finishAllScheduledFunctions(async () => {});
+    await expect(
+      authed.mutation(api.email.mutations.requestAiDraft, {
+        caseId,
+        recipientType: "vendor",
+        recipientId: vendorId,
+      }),
+    ).rejects.toMatchObject({ data: { code: "RATE_LIMITED" } });
+  });
+
+  test("rejects drafting for a closed case with CONFLICT", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "reqclosed");
+    await ensureInbox(t, workspaceId);
+    await t.run(async (ctx) =>
+      ctx.db.patch("cases", caseId, { status: "CLOSED" }),
+    );
+    await expect(
+      authed.mutation(api.email.mutations.requestAiDraft, {
+        caseId,
+        recipientType: "resident",
+        recipientEmail: "resident@example.com",
+      }),
+    ).rejects.toMatchObject({ data: { code: "CONFLICT" } });
+  });
+
+  test("rejects a cross-workspace caseId with NOT_FOUND", async () => {
+    const t = makeBackend();
+    const a = await makeCase(t, "req-a");
+    const b = await makeCase(t, "req-b");
+    await ensureInbox(t, a.workspaceId);
+    await expect(
+      a.authed.mutation(api.email.mutations.requestAiDraft, {
+        caseId: b.caseId,
+        recipientType: "resident",
+        recipientEmail: "resident@example.com",
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+
+  test("rejects a vendor request without a vendor id", async () => {
+    const t = makeBackend();
+    const { authed, workspaceId, caseId } = await makeCase(t, "reqnovid");
+    await ensureInbox(t, workspaceId);
+    await expect(
+      authed.mutation(api.email.mutations.requestAiDraft, {
+        caseId,
+        recipientType: "vendor",
+      }),
+    ).rejects.toMatchObject({ data: { code: "VALIDATION_ERROR" } });
   });
 });
