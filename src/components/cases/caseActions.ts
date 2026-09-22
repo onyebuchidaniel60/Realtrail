@@ -22,7 +22,8 @@ export type PanelAction =
   | { kind: "status" }
   | { kind: "close" }
   | { kind: "reopen" }
-  | { kind: "review" };
+  | { kind: "review" }
+  | { kind: "contactResident" };
 
 export interface PrimaryAction {
   label: string;

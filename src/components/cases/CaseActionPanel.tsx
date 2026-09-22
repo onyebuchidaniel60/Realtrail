@@ -83,6 +83,13 @@ export function CaseActionPanel({
               Change status <span aria-hidden="true">→</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => onAction({ kind: "contactResident" })}
+            className={secondaryButtonClass}
+          >
+            Contact resident <span aria-hidden="true">→</span>
+          </button>
         </section>
       )}
 

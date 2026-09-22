@@ -14,6 +14,13 @@ import { ReviewTriageSheet } from "./ReviewTriageSheet";
 import { VendorCard } from "@/components/vendors/VendorCard";
 import { VendorDiscoveryDrawer } from "./VendorDiscoveryDrawer";
 import { PriorityBadge } from "./PriorityBadge";
+import { CommunicationsSection } from "./CommunicationsSection";
+import {
+  DraftComposerSheet,
+  type ComposerRecipient,
+} from "./DraftComposerSheet";
+import { QueryErrorBoundary } from "@/components/common/ErrorBoundary";
+import { ErrorState } from "@/components/common/ErrorState";
 import { caseStatusVariant, formatRelativeTime, formatStatus } from "./caseDisplay";
 import { AssignDialog } from "./dialogs/AssignDialog";
 import { CloseCaseDialog } from "./dialogs/CloseCaseDialog";
@@ -84,6 +91,10 @@ export function CaseDetail({
   >(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
+  const [composer, setComposer] = useState<{
+    recipient: ComposerRecipient;
+    existingDraftId?: Id<"communications">;
+  } | null>(null);
 
   const propertyId = data?.case.propertyId;
   const buildingId = data?.case.buildingId;
@@ -117,10 +128,58 @@ export function CaseDetail({
     : "Location unknown";
 
   const primary = getPrimaryAction(record, allowedActions);
+  const closed = record.status === "CLOSED";
+
+  function openVendorComposer(existingDraftId?: Id<"communications">) {
+    if (vendor === null) {
+      return;
+    }
+    setComposer({
+      recipient: {
+        type: "vendor",
+        vendorId: vendor._id,
+        vendorName: vendor.name,
+        vendorEmail: vendor.email,
+      },
+      existingDraftId,
+    });
+  }
+
+  function openResidentComposer(
+    existingDraftId?: Id<"communications">,
+    prefillEmail?: string,
+  ) {
+    setComposer({
+      recipient: {
+        type: "resident",
+        recipientEmail: prefillEmail ?? record.reporterEmail,
+      },
+      existingDraftId,
+    });
+  }
+
+  // Resolve a draft row back to its composer recipient. Vendor rows reuse
+  // the linked vendor; anything else opens as a resident draft addressed
+  // to the row's stored recipient.
+  function openExistingDraft(draft: {
+    id: Id<"communications">;
+    participantType: "resident" | "vendor" | "other";
+    toEmail: string;
+  }) {
+    if (draft.participantType === "vendor" && vendor !== null) {
+      openVendorComposer(draft.id);
+    } else {
+      openResidentComposer(draft.id, draft.toEmail || undefined);
+    }
+  }
 
   async function handleAction(action: PanelAction) {
     if (action.kind === "review") {
       setReviewOpen(true);
+      return;
+    }
+    if (action.kind === "contactResident") {
+      openResidentComposer();
       return;
     }
     if (action.kind === "transition") {
@@ -229,12 +288,12 @@ export function CaseDetail({
           ) : (
             <div className="flex flex-col gap-3">
               <VendorCard vendor={vendor} />
-              {/* TODO(Phase 8): Contact vendor composes an outbound message. */}
               <button
                 type="button"
-                disabled
-                title="Vendor contact arrives in a later phase"
-                className="w-fit rounded-md border px-3 py-2 text-sm font-medium opacity-50"
+                onClick={() => openVendorComposer()}
+                disabled={closed}
+                title={closed ? "Case is closed" : undefined}
+                className="w-fit rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
               >
                 Contact vendor
               </button>
@@ -243,9 +302,30 @@ export function CaseDetail({
         </div>
       </section>
 
+      <QueryErrorBoundary
+        fallback={(_error, reset) => (
+          <section className="rounded-xl border bg-card p-6">
+            <h2 className="font-medium">Communications</h2>
+            <div className="mt-4">
+              <ErrorState
+                message="Could not load communications."
+                onRetry={reset}
+              />
+            </div>
+          </section>
+        )}
+      >
+        <CommunicationsSection
+          caseId={record._id}
+          vendorLinked={vendor !== null}
+          onOpenDraft={openExistingDraft}
+          onContactVendor={() => openVendorComposer()}
+          onContactResident={() => openResidentComposer()}
+        />
+      </QueryErrorBoundary>
+
       {/*
         Later phases insert sections here:
-        - Phase 5: Communications section (email threads, reply composer)
         - Phase 9: Resolution section (vendor completion, confirmation state)
       */}
         </div>
@@ -309,6 +389,22 @@ export function CaseDetail({
           record={record}
           open
           onClose={() => setDiscoveryOpen(false)}
+        />
+      )}
+      {composer !== null && (
+        <DraftComposerSheet
+          caseId={record._id}
+          caseNumber={record.caseNumber}
+          caseTitle={record.title}
+          locationLabel={locationLabel}
+          open
+          onOpenChange={(v) => {
+            if (!v) {
+              setComposer(null);
+            }
+          }}
+          recipient={composer.recipient}
+          existingDraftId={composer.existingDraftId}
         />
       )}
     </>
