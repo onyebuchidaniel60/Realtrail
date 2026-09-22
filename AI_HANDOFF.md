@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 8 — AI Drafting and AgentMail Sending (in progress). 8-A complete. 8-B complete. 8-C pending (draft UI).**
+**Phase 8 — AI Drafting and AgentMail Sending (complete). 8-A, 8-B, 8-C done.**
 
 ---
 
@@ -182,6 +182,7 @@ Application implementation (in progress):
 - Phase 7-C: Vendors screen (table/cards, search, category filter, add/edit drawer). Vendor section in Case Detail (vendor card, link/unlink). Discovery drawer with refinement input, rank-banded result cards, evidence snippets, save-to-vendors action, and automatic case linkage via cases.setVendor. Added case.vendorId field + setVendor mutation + cases.get vendor summary. Test count: 435.
 - Phase 8-A: Outbound drafting + send backend (no UI, no live sends — all provider calls mocked). sendMessage wired in the AgentMail wrapper (POST /v0/inboxes/{id}/messages/send, Bearer, 30s timeout, clientId sent as the Idempotency-Key header per current docs; timeout/malformed-200 map to uncertain errors via isUncertainSendError). Draft prompt module with injection defenses (untrusted_thread delimiters) and do-not-invent rules. draftEmail in the OpenAI wrapper (strict {subject, textBody} schema, model from OPENAI_DRAFT_MODEL). ai.generateDraft internalAction (vendor recipient resolves to stored vendor email; resident recipient validated; prior 5 messages as context; persists draft + DRAFT_GENERATED activity; never sends). communications.createDraftRecord (manual-draft path, DRAFT_CREATED/DRAFT_GENERATED). communications.approveSend (human gate: draft-only CONFLICT guard, closed-case rejection, schedules the worker, no provider call inside). email.sendPendingCommunication worker (pending_send → sending claim → sent with provider ids + EMAIL_SENT; 429/5xx retry 3x at 60s; 4xx/config fail fast; timeout/unknown → send_uncertain with no auto-retry). listByCase query (chronological, no provider IDs). Added sendAttempts to communications. Test count: 492 (was 435; +57).
 - Phase 8-B: Live send verified end-to-end on eu-west-dev. Temp module (convex/tmpVerifyOutbound.ts, deleted after) seeded one pending_send row on the smoke workspace and invoked the real worker once via CLI. Observed DB transitions: pending_send → sending → sent, sendAttempts stayed 0, providerMessageId + agentMailMessageId + agentMailThreadId populated, lastError cleared, case.lastOutboundAt refreshed, exactly one EMAIL_SENT activity, zero EMAIL_SEND_UNCERTAIN. Live send verified against target mailbox (operator-supplied): human confirmed receipt with matching From (workspace inbox), To, Date, and Subject, no delay. No code, schema, or test changes (docs-only task); temp module deleted; full suite still 492/492.
+- Phase 8-C: Draft + send UI on Case Detail. requestAiDraft public mutation (membership, closed-case CONFLICT, recipient-shape validation, 30s per-case+recipient RATE_LIMITED cooldown, schedules generateDraft). DraftComposerSheet (blank/manual compose, Draft-with-AI with arrival adoption, read-only recipient, AI chip, save-then-send flow; never calls approveSend). SendConfirmationDialog (server-row To, preview with Show-full, unsent-warning, sole approveSend call site with CONFLICT toast). CommunicationsSection (chronological plain-text history, 7-status chips, send_uncertain Needs-review, Open-draft, empty state with contact buttons). Contact vendor button enabled when linked; Contact resident panel action added. Test count: 521 (was 492; +29).
 
 ---
 
@@ -407,6 +408,14 @@ convex/email/sendPendingCommunication.ts
 convex/lib/providers/draftPrompt.ts
 ```
 
+Phase 8-C draft/send UI:
+
+```text
+src/components/cases/DraftComposerSheet.tsx
+src/components/cases/SendConfirmationDialog.tsx
+src/components/cases/CommunicationsSection.tsx
+```
+
 Recommended application structure:
 
 ```text
@@ -547,6 +556,12 @@ Watch especially:
 - AgentMail outbound is live. If sends fail, check AgentMail credits and key scope first.
 - sendAttempts stays at 0 on success (increments only on PROVIDER_ERROR).
 - send_uncertain is terminal until a manager resolves it — no auto-retry, no auto-re-send.
+- approveSend is invoked from exactly one place in the UI (SendConfirmationDialog). Do not add other call sites.
+- requestAiDraft is rate-limited to one per 30s per case + recipient.
+- Communications render as plain text; never dangerouslySetInnerHTML.
+- send_uncertain items display a "Needs review" label; no automatic resend path exists in the UI.
+- Generated api refs are Proxy objects without referential stability (verified: a === b is false, no enumerable keys). Never dispatch test mocks by ref identity — route useMutation/useQuery mocks by args shape, or stub the api module for stable refs (CaseDetail.contact.test.tsx pattern, needed because cases.get and listByCase share the {caseId} shape).
+- Sheets that sync async rows into form state: remount per session via key and adopt rows during render (sanctioned alternative to setState-in-effect). The linter also forbids ref reads during render — capture snapshots (e.g. known ID sets) in event handlers into state instead.
 
 ---
 
@@ -569,4 +584,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 8-C — Draft UI. Draft editor drawer in Case Detail. 'Contact vendor' button (currently placeholder-disabled in Phase 7-C) opens the draft flow. 'Contact resident' variant. Send confirmation dialog. Sent-message rendering in the communications section. Tests.**
+**Phase 9 — Resolution Confirmation.**
