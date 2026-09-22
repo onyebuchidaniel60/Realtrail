@@ -664,3 +664,47 @@ export const reopen = mutation({
     return { caseId: record._id, status: "IN_PROGRESS" as const };
   },
 });
+
+export const setVendor = mutation({
+  args: {
+    caseId: v.id("cases"),
+    vendorId: v.union(v.id("vendors"), v.null()),
+  },
+  returns: v.object({ caseId: v.id("cases") }),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const { record } = await loadCaseForMember(ctx, args.caseId, user._id);
+    let vendorName: string | null = null;
+    if (args.vendorId !== null) {
+      const vendor = await ctx.db.get("vendors", args.vendorId);
+      // Existence-hiding convention: a vendor outside the case's
+      // workspace reads as NOT_FOUND, never FORBIDDEN.
+      if (vendor === null || vendor.workspaceId !== record.workspaceId) {
+        appError("NOT_FOUND", "Vendor not found.");
+      }
+      vendorName = vendor.name;
+    }
+    if (record.status === "CLOSED") {
+      appError("FORBIDDEN", "Closed cases cannot change vendor.");
+    }
+    const now = Date.now();
+    await ctx.db.patch("cases", record._id, {
+      vendorId: args.vendorId ?? undefined,
+      updatedAt: now,
+      lastActivityAt: now,
+    });
+    await insertActivity(
+      ctx,
+      record,
+      "VENDOR_SET",
+      user._id,
+      vendorName === null
+        ? "Vendor unlinked from case"
+        : `${vendorName} linked to case`,
+      args.vendorId === null
+        ? undefined
+        : { vendorId: args.vendorId },
+    );
+    return { caseId: record._id };
+  },
+});

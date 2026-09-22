@@ -119,6 +119,8 @@ export default defineSchema({
     propertyId: v.optional(v.id("properties")),
     buildingId: v.optional(v.id("buildings")),
     unitId: v.optional(v.id("units")),
+    // Linked operational vendor (Phase 7). Set via cases.setVendor only.
+    vendorId: v.optional(v.id("vendors")),
     reporterName: v.optional(v.string()),
     reporterEmail: v.optional(v.string()),
     assigneeId: v.optional(v.id("users")),

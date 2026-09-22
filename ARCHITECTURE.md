@@ -452,6 +452,7 @@ category: Category
 propertyId: Id<properties>?
 buildingId: Id<buildings>?
 unitId: Id<units>?
+vendorId: Id<vendors>?
 reporterName: string?
 reporterEmail: string?
 assigneeId: Id<users>?

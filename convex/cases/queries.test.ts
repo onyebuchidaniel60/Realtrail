@@ -234,3 +234,46 @@ describe("cases.list", () => {
     expect(new Set(seen).size).toEqual(3);
   });
 });
+
+describe("cases.get vendor summary", () => {
+  test("returns vendor null when no vendor is linked", async () => {
+    const { authed } = await setupWorkspace(OWNER_A);
+    const { caseId } = await authed.mutation(api.cases.mutations.createManual, {
+      title: "Leak",
+      description: "Kitchen leak needs attention.",
+      category: "plumbing",
+      priority: "MEDIUM",
+    });
+    const result = await authed.query(api.cases.queries.get, { caseId });
+    expect(result.vendor).toBeNull();
+  });
+
+  test("returns the linked vendor summary", async () => {
+    const { authed } = await setupWorkspace(OWNER_A);
+    const { caseId } = await authed.mutation(api.cases.mutations.createManual, {
+      title: "Leak",
+      description: "Kitchen leak needs attention.",
+      category: "plumbing",
+      priority: "MEDIUM",
+    });
+    const { vendorId } = await authed.mutation(api.vendors.save, {
+      name: "Aqua Plumbing",
+      serviceCategories: ["plumbing"],
+      email: "hello@aqua.example.com",
+      website: "https://aqua.example.com/",
+      source: "manual",
+    });
+    await authed.mutation(api.cases.mutations.setVendor, {
+      caseId,
+      vendorId,
+    });
+    const result = await authed.query(api.cases.queries.get, { caseId });
+    expect(result.vendor).toMatchObject({
+      _id: vendorId,
+      name: "Aqua Plumbing",
+      email: "hello@aqua.example.com",
+      website: "https://aqua.example.com/",
+    });
+    expect(result.vendor?.serviceCategories).toEqual(["plumbing"]);
+  });
+});

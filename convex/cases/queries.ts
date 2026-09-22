@@ -88,9 +88,33 @@ export const get = query({
         !RESERVED_STATUSES.includes(to) &&
         canTransition(record.status, to, role).ok,
     );
+    // Linked vendor summary for the Case Detail vendor card. Defensive:
+    // a missing or foreign-workspace vendor reads as null.
+    let vendor: {
+      _id: Doc<"vendors">["_id"];
+      name: string;
+      email: string | undefined;
+      phone: string | undefined;
+      website: string | undefined;
+      serviceCategories: Doc<"vendors">["serviceCategories"];
+    } | null = null;
+    if (record.vendorId !== undefined) {
+      const linked = await ctx.db.get("vendors", record.vendorId);
+      if (linked !== null && linked.workspaceId === record.workspaceId) {
+        vendor = {
+          _id: linked._id,
+          name: linked.name,
+          email: linked.email,
+          phone: linked.phone,
+          website: linked.website,
+          serviceCategories: linked.serviceCategories,
+        };
+      }
+    }
     return {
       case: record,
       activities,
+      vendor,
       allowedActions: {
         canTransitionTo,
         canClose: {

@@ -755,3 +755,104 @@ describe("cases cross-workspace IDOR", () => {
     expect(page.nextCursor).toBeNull();
   });
 });
+
+describe("cases.setVendor", () => {
+  async function setupCase() {
+    const setup = await setupWorkspace(OWNER_A);
+    const { caseId } = await setup.authed.mutation(
+      api.cases.mutations.createManual,
+      VALID_CASE,
+    );
+    const { vendorId } = await setup.authed.mutation(api.vendors.save, {
+      name: "Aqua Plumbing",
+      serviceCategories: ["plumbing"],
+      website: "https://aqua.example.com/",
+      source: "manual",
+    });
+    return { ...setup, caseId, vendorId };
+  }
+
+  test("links a vendor and records a VENDOR_SET activity", async () => {
+    const { t, authed, caseId, vendorId } = await setupCase();
+    const result = await authed.mutation(api.cases.mutations.setVendor, {
+      caseId,
+      vendorId,
+    });
+    expect(result).toEqual({ caseId });
+    const record = await t.run(async (ctx) => ctx.db.get("cases", caseId));
+    expect(record?.vendorId).toBe(vendorId);
+    const activities = await t.run(async (ctx) =>
+      ctx.db
+        .query("caseActivities")
+        .withIndex("by_caseId", (q) => q.eq("caseId", caseId))
+        .collect(),
+    );
+    const linked = activities.filter((a) => a.type === "VENDOR_SET");
+    expect(linked).toHaveLength(1);
+    expect(linked[0].summary).toBe("Aqua Plumbing linked to case");
+  });
+
+  test("clears the vendor with null", async () => {
+    const { t, authed, caseId, vendorId } = await setupCase();
+    await authed.mutation(api.cases.mutations.setVendor, { caseId, vendorId });
+    await authed.mutation(api.cases.mutations.setVendor, {
+      caseId,
+      vendorId: null,
+    });
+    const record = await t.run(async (ctx) => ctx.db.get("cases", caseId));
+    expect(record?.vendorId).toBeUndefined();
+  });
+
+  test("rejects a cross-workspace vendorId", async () => {
+    const setupA = await setupWorkspace(OWNER_A);
+    const setupB = await setupWorkspace(OWNER_B);
+    const { caseId } = await setupA.authed.mutation(
+      api.cases.mutations.createManual,
+      VALID_CASE,
+    );
+    const { vendorId } = await setupB.authed.mutation(api.vendors.save, {
+      name: "Foreign Vendor",
+      serviceCategories: ["plumbing"],
+      source: "manual",
+    });
+    await expect(
+      setupA.authed.mutation(api.cases.mutations.setVendor, {
+        caseId,
+        vendorId,
+      }),
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+
+  test("rejects setVendor on a CLOSED case", async () => {
+    const { t, authed, caseId, vendorId } = await setupCase();
+    await t.run(async (ctx) => {
+      await ctx.db.patch("cases", caseId, { status: "CLOSED" });
+    });
+    await expect(
+      authed.mutation(api.cases.mutations.setVendor, { caseId, vendorId }),
+    ).rejects.toMatchObject({ data: { code: "FORBIDDEN" } });
+  });
+
+  test("relinking creates one activity per link", async () => {
+    const { t, authed, caseId, vendorId } = await setupCase();
+    await authed.mutation(api.cases.mutations.setVendor, { caseId, vendorId });
+    const { vendorId: secondId } = await authed.mutation(api.vendors.save, {
+      name: "Bolt Electric",
+      serviceCategories: ["electrical"],
+      source: "manual",
+    });
+    await authed.mutation(api.cases.mutations.setVendor, {
+      caseId,
+      vendorId: secondId,
+    });
+    const activities = await t.run(async (ctx) =>
+      ctx.db
+        .query("caseActivities")
+        .withIndex("by_caseId", (q) => q.eq("caseId", caseId))
+        .collect(),
+    );
+    expect(
+      activities.filter((a) => a.type === "VENDOR_SET"),
+    ).toHaveLength(2);
+  });
+});
