@@ -11,6 +11,8 @@ import { CaseActionPanel } from "./CaseActionPanel";
 import { getPrimaryAction, type PanelAction } from "./caseActions";
 import { AISummaryCard } from "./AISummaryCard";
 import { ReviewTriageSheet } from "./ReviewTriageSheet";
+import { VendorCard } from "@/components/vendors/VendorCard";
+import { VendorDiscoveryDrawer } from "./VendorDiscoveryDrawer";
 import { PriorityBadge } from "./PriorityBadge";
 import { caseStatusVariant, formatRelativeTime, formatStatus } from "./caseDisplay";
 import { AssignDialog } from "./dialogs/AssignDialog";
@@ -81,6 +83,7 @@ export function CaseDetail({
     null | "note" | "edit" | "assign" | "status" | "close" | "reopen"
   >(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [discoveryOpen, setDiscoveryOpen] = useState(false);
 
   const propertyId = data?.case.propertyId;
   const buildingId = data?.case.buildingId;
@@ -102,6 +105,8 @@ export function CaseDetail({
   }
 
   const { case: record, activities, allowedActions } = data;
+  // Defaulted for resilience: older mocks and cached payloads may omit it.
+  const vendor = data.vendor ?? null;
   const property = properties?.find((p) => p._id === record.propertyId);
   const building = buildings?.find((b) => b._id === record.buildingId);
   const unit = units?.find((u) => u._id === record.unitId);
@@ -205,10 +210,42 @@ export function CaseDetail({
         )}
       </section>
 
+      <section className="rounded-xl border bg-card p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium">Vendor</h2>
+          <button
+            type="button"
+            onClick={() => setDiscoveryOpen(true)}
+            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+          >
+            Find a vendor
+          </button>
+        </div>
+        <div className="mt-3">
+          {vendor === null ? (
+            <p className="text-sm text-muted-foreground">
+              No vendor linked yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <VendorCard vendor={vendor} />
+              {/* TODO(Phase 8): Contact vendor composes an outbound message. */}
+              <button
+                type="button"
+                disabled
+                title="Vendor contact arrives in a later phase"
+                className="w-fit rounded-md border px-3 py-2 text-sm font-medium opacity-50"
+              >
+                Contact vendor
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/*
-        Later phases insert sections here — do not add them in 3-B-2:
+        Later phases insert sections here:
         - Phase 5: Communications section (email threads, reply composer)
-        - Phase 7: Vendor section (selected vendor, discovery entry point)
         - Phase 9: Resolution section (vendor completion, confirmation state)
       */}
         </div>
@@ -265,6 +302,13 @@ export function CaseDetail({
           record={record}
           open
           onClose={() => setReviewOpen(false)}
+        />
+      )}
+      {discoveryOpen && (
+        <VendorDiscoveryDrawer
+          record={record}
+          open
+          onClose={() => setDiscoveryOpen(false)}
         />
       )}
     </>

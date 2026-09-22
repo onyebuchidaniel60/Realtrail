@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import { CaseDetail } from "./CaseDetail";
 
 const mockUseQuery = vi.hoisted(() => vi.fn());
 const mockMutate = vi.hoisted(() => vi.fn());
+const mockUseAction = vi.hoisted(() => vi.fn());
 
 vi.mock("@clerk/clerk-react", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true }),
@@ -17,6 +18,7 @@ vi.mock("convex/react", async (importOriginal) => {
     ...mod,
     useQuery: (...args: unknown[]) => mockUseQuery(...args),
     useMutation: () => mockMutate,
+    useAction: () => mockUseAction,
   };
 });
 
@@ -132,6 +134,7 @@ function mockDetailQueries(overrides?: {
       : {
           case: CASE,
           activities: ACTIVITIES_NEWEST_FIRST,
+          vendor: null,
           allowedActions: ALLOWED_ACTIONS,
         };
   mockUseQuery.mockImplementation((_fn: unknown, args: unknown) => {
@@ -156,6 +159,8 @@ function mockDetailQueries(overrides?: {
 beforeEach(() => {
   mockUseQuery.mockReset();
   mockMutate.mockReset();
+  mockUseAction.mockReset();
+  mockUseAction.mockReturnValue(vi.fn());
 });
 
 describe("CaseDetail", () => {
@@ -231,6 +236,7 @@ describe("CaseDetail", () => {
           },
         },
         activities: [],
+        vendor: null,
         allowedActions: { ...ALLOWED_ACTIONS, canTransitionTo: ["TRIAGED"] },
       },
     });
@@ -241,5 +247,55 @@ describe("CaseDetail", () => {
     expect(buttons.length).toBeGreaterThan(0);
     await user.click(buttons[0]);
     expect(screen.getByText("Review AI triage")).toBeInTheDocument();
+  });
+
+  it("renders the vendor empty state when no vendor is linked", () => {
+    mockDetailQueries();
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    expect(screen.getByText("No vendor linked yet.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Find a vendor" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the vendor card when a vendor is linked", () => {
+    mockDetailQueries({
+      caseData: {
+        case: CASE,
+        activities: [],
+        vendor: {
+          _id: "v1",
+          name: "Aqua Plumbing",
+          email: "hello@aqua.example.com",
+          phone: undefined,
+          website: "https://aqua.example.com/",
+          serviceCategories: ["plumbing"],
+        },
+        allowedActions: ALLOWED_ACTIONS,
+      },
+    });
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    expect(screen.getByText("Aqua Plumbing")).toBeInTheDocument();
+    expect(screen.getByText("hello@aqua.example.com")).toBeInTheDocument();
+    // The IN_PROGRESS fixture's panel primary action is also labeled
+    // "Contact vendor", so scope to the Vendor section.
+    const section = screen
+      .getByRole("heading", { name: "Vendor" })
+      .closest("section");
+    expect(section).not.toBeNull();
+    const contactButton = within(section as HTMLElement).getByRole("button", {
+      name: "Contact vendor",
+    });
+    expect(contactButton).toBeDisabled();
+  });
+
+  it("opens the discovery drawer from Find a vendor", async () => {
+    const user = userEvent.setup();
+    mockDetailQueries();
+    render(<CaseDetail caseId={"c1" as never} onClose={() => {}} />);
+    await user.click(screen.getByRole("button", { name: "Find a vendor" }));
+    expect(
+      screen.getByText(/Search the web for providers/),
+    ).toBeInTheDocument();
   });
 });
