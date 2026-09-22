@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 9 — Resolution Confirmation (in progress). 9-A complete. 9-B pending (public HTTP /confirm). 9-C pending (UI).**
+**Phase 9 — Resolution Confirmation (in progress). 9-A complete. 9-B complete. 9-C pending (manager UI). 9-D pending (live click verification, human step).**
 
 ---
 
@@ -184,6 +184,7 @@ Application implementation (in progress):
 - Phase 8-B: Live send verified end-to-end on eu-west-dev. Temp module (convex/tmpVerifyOutbound.ts, deleted after) seeded one pending_send row on the smoke workspace and invoked the real worker once via CLI. Observed DB transitions: pending_send → sending → sent, sendAttempts stayed 0, providerMessageId + agentMailMessageId + agentMailThreadId populated, lastError cleared, case.lastOutboundAt refreshed, exactly one EMAIL_SENT activity, zero EMAIL_SEND_UNCERTAIN. Live send verified against target mailbox (operator-supplied): human confirmed receipt with matching From (workspace inbox), To, Date, and Subject, no delay. No code, schema, or test changes (docs-only task); temp module deleted; full suite still 492/492.
 - Phase 8-C: Draft + send UI on Case Detail. requestAiDraft public mutation (membership, closed-case CONFLICT, recipient-shape validation, 30s per-case+recipient RATE_LIMITED cooldown, schedules generateDraft). DraftComposerSheet (blank/manual compose, Draft-with-AI with arrival adoption, read-only recipient, AI chip, save-then-send flow; never calls approveSend). SendConfirmationDialog (server-row To, preview with Show-full, unsent-warning, sole approveSend call site with CONFLICT toast). CommunicationsSection (chronological plain-text history, 7-status chips, send_uncertain Needs-review, Open-draft, empty state with contact buttons). Contact vendor button enabled when linked; Contact resident panel action added. Test count: 521 (was 492; +29).
 - Phase 9-A: Confirmation token infrastructure + consume flow (no HTTP, no UI, no reminders). confirmationTokens table added (decision optional at issue). Pure sync SHA-256 helper (vectors + subtle cross-check green) + token module (32-byte base64url, hash-only storage, https-only link builder). requestConfirmation: WIP-only, reporter/override email, supersedes prior unused tokens, TTL env with 72h fallback, PUBLIC_APP_URL fail-closed, mints token + pending_send email + CONFIRMATION_REQUESTED + schedules send. consumeConfirmation (internal): unknown/expired → TOKEN_EXPIRED, used → TOKEN_USED, non-awaiting case → CONFLICT; yes → RESOLVED/resident, no → WIP; records decision + resident activity. Race safety via same-document serialization (no lock). Test count: 547 (was 521; +26).
+- Phase 9-B: Public GET/POST /confirm on the existing httpRouter (webhook untouched). GET renders the Yes/No page for well-formed tokens without touching the database (missing/malformed → invalid-link page, still 200). POST validates form shape + token pattern, consumes via the internal mutation, renders byte-identical generic pages for every failure (unknown/expired/used/conflict/malformed share one template). Headers: no-referrer, no-store (+no-cache on POST), nosniff, strict CSP, no scripts. Raw tokens never logged (code-level warn only), never stored, never echoed after consumption. Test count: 566 (was 547; +19).
 
 ---
 
@@ -425,6 +426,8 @@ convex/lib/sha256.ts
 convex/cases/confirmation.ts
 ```
 
+convex/http.ts now hosts three routes: POST /webhooks/agentmail, GET /confirm, POST /confirm.
+
 Recommended application structure:
 
 ```text
@@ -577,6 +580,13 @@ Watch especially:
 - consumeConfirmation is internal — never exposed to the client; the public surface is the POST /confirm HTTP endpoint (9-B).
 - consumeConfirmation rejects with TOKEN_EXPIRED for both unknown and expired tokens (no existence leakage).
 - "decision" on confirmationTokens is optional at issue time and set at consume time.
+- /confirm endpoints return HTTP 200 for every error path (no 4xx), so an attacker cannot distinguish valid-but-expired from unknown.
+- Referrer-Policy: no-referrer and Content-Security-Policy headers are set on all /confirm responses. Do not remove them.
+- Raw tokens are never logged, never stored, and never echoed back after consumption.
+- No rate-limit on /confirm — the token space is 32 bytes and both outcomes are cheap reads. Add a dedicated rate-limit only if a real abuse pattern emerges.
+- GET /confirm does not query the database. Do not add a lookup "for validation" — it would introduce a timing oracle.
+- Phase 13 audit candidate: `requireResourceWorkspaceMembership` throws FORBIDDEN not NOT_FOUND, inconsistent with the existence-hiding convention. Not exploitable today; deferred.
+- Phase 12/13 candidate: consumeConfirmation passes "owner" as a placeholder role to the state machine. Add a "resident" actor type so the confirmation path is semantically honest.
 
 ---
 
@@ -599,4 +609,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 9-B — public GET/POST /confirm endpoints with signature verification.**
+**Phase 9-C — Manager UI on Case Detail. 'Request confirmation' button (WORK_IN_PROGRESS only). Show pending confirmation state. Surface resident yes/no outcome on the case timeline.**
