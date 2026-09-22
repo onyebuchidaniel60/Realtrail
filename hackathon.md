@@ -12,7 +12,7 @@
 - **Auth:** Clerk
 - **AI models:** none
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T01:20:19Z
+- **Last updated:** 2026-09-22T01:42:42Z
 
 ## Log
 
@@ -111,3 +111,6 @@ Phase 6-B: live triage verified end-to-end. With provider credentials set on the
 
 ### 2026-09-22 - f73999c
 Phase 6-C: manager review UI for AI triage. Case Detail gained an AI summary card with a review entry point; the review sheet offers editable fields with advisory hints, collapsible AI details, and accept flow into TRIAGED. All AI text renders as plain text only. Covered with 18 new tests (suite total 346). Handoff updated (f73999c) (`src/components/cases/AISummaryCard.tsx`, `src/components/cases/ReviewTriageSheet.tsx`).
+
+### 2026-09-22 - e8dabf5
+Phase 7-A: vendor discovery backend. New tables for the vendor directory and research runs; a docs-verified Firecrawl client (v2 API) with deterministic category-plus-locality search, rule-based rank bands, and bounded contact extraction; a discover action with a per-case cooldown plus save, update, list, and research queries. All provider calls mocked. Covered with 57 new tests (suite total 403). Handoff updated (e8dabf5) (`convex/lib/providers/firecrawl.ts`, `convex/vendors/`).
