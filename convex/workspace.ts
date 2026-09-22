@@ -3,39 +3,11 @@ import { v } from "convex/values";
 import schema from "./schema";
 import { requireUser } from "./lib/auth";
 import { appError } from "./lib/errors";
-
-const ISO_CURRENCY_CODES = new Set([
-  "USD",
-  "EUR",
-  "GBP",
-  "NGN",
-  "GHS",
-  "KES",
-  "ZAR",
-  "EGP",
-  "XOF",
-  "XAF",
-  "MAD",
-  "ETB",
-  "TZS",
-  "UGX",
-  "RWF",
-  "ZMW",
-  "CAD",
-  "AUD",
-  "JPY",
-  "CNY",
-  "INR",
-  "AED",
-  "SAR",
-  "QAR",
-  "CHF",
-  "SEK",
-  "NOK",
-  "DKK",
-  "BRL",
-  "MXN",
-]);
+import {
+  validateCurrency,
+  validateTimezone,
+  validateWorkspaceName,
+} from "./workspace/validation";
 
 export const getCurrent = query({
   args: {},
@@ -75,32 +47,11 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
 
-    const name = args.workspaceName.trim();
-    if (name.length < 2 || name.length > 80) {
-      appError(
-        "VALIDATION_ERROR",
-        "Workspace name must be 2..80 characters.",
-        "workspaceName",
-      );
-    }
-
-    try {
-      new Intl.DateTimeFormat("en-US", { timeZone: args.timezone });
-    } catch {
-      appError("VALIDATION_ERROR", "Invalid IANA timezone.", "timezone");
-    }
-
-    const currency = args.currency.trim().toUpperCase();
-    if (
-      !/^[A-Z]{3}$/.test(currency) ||
-      !ISO_CURRENCY_CODES.has(currency)
-    ) {
-      appError(
-        "VALIDATION_ERROR",
-        "Currency must be a supported 3-letter ISO code.",
-        "currency",
-      );
-    }
+    // Shared validators (convex/workspace/validation.ts) — same rules as
+    // before, now reused by settings.updateWorkspace.
+    const name = validateWorkspaceName(args.workspaceName, "workspaceName");
+    validateTimezone(args.timezone);
+    const currency = validateCurrency(args.currency);
 
     const existing = await ctx.db
       .query("workspaceMembers")

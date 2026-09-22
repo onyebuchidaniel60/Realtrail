@@ -48,6 +48,8 @@ import type * as vendors from "../vendors.js";
 import type * as vendors_discover from "../vendors/discover.js";
 import type * as vendors_research from "../vendors/research.js";
 import type * as workspace from "../workspace.js";
+import type * as workspace_settings from "../workspace/settings.js";
+import type * as workspace_validation from "../workspace/validation.js";
 import type * as workspaces_provisioning from "../workspaces/provisioning.js";
 
 import type {
@@ -97,6 +99,8 @@ declare const fullApi: ApiFromModules<{
   "vendors/discover": typeof vendors_discover;
   "vendors/research": typeof vendors_research;
   workspace: typeof workspace;
+  "workspace/settings": typeof workspace_settings;
+  "workspace/validation": typeof workspace_validation;
   "workspaces/provisioning": typeof workspaces_provisioning;
 }>;
 
