@@ -125,7 +125,7 @@ Reopen:
 
 # 6. Current phase
 
-**Phase 9 — Resolution Confirmation (in progress). 9-A complete. 9-B complete. 9-C pending (manager UI). 9-D pending (live click verification, human step).**
+**Phase 9 — Resolution Confirmation (complete). 9-A, 9-B, 9-C, 9-D done.**
 
 ---
 
@@ -185,6 +185,7 @@ Application implementation (in progress):
 - Phase 8-C: Draft + send UI on Case Detail. requestAiDraft public mutation (membership, closed-case CONFLICT, recipient-shape validation, 30s per-case+recipient RATE_LIMITED cooldown, schedules generateDraft). DraftComposerSheet (blank/manual compose, Draft-with-AI with arrival adoption, read-only recipient, AI chip, save-then-send flow; never calls approveSend). SendConfirmationDialog (server-row To, preview with Show-full, unsent-warning, sole approveSend call site with CONFLICT toast). CommunicationsSection (chronological plain-text history, 7-status chips, send_uncertain Needs-review, Open-draft, empty state with contact buttons). Contact vendor button enabled when linked; Contact resident panel action added. Test count: 521 (was 492; +29).
 - Phase 9-A: Confirmation token infrastructure + consume flow (no HTTP, no UI, no reminders). confirmationTokens table added (decision optional at issue). Pure sync SHA-256 helper (vectors + subtle cross-check green) + token module (32-byte base64url, hash-only storage, https-only link builder). requestConfirmation: WIP-only, reporter/override email, supersedes prior unused tokens, TTL env with 72h fallback, PUBLIC_APP_URL fail-closed, mints token + pending_send email + CONFIRMATION_REQUESTED + schedules send. consumeConfirmation (internal): unknown/expired → TOKEN_EXPIRED, used → TOKEN_USED, non-awaiting case → CONFLICT; yes → RESOLVED/resident, no → WIP; records decision + resident activity. Race safety via same-document serialization (no lock). Test count: 547 (was 521; +26).
 - Phase 9-B: Public GET/POST /confirm on the existing httpRouter (webhook untouched). GET renders the Yes/No page for well-formed tokens without touching the database (missing/malformed → invalid-link page, still 200). POST validates form shape + token pattern, consumes via the internal mutation, renders byte-identical generic pages for every failure (unknown/expired/used/conflict/malformed share one template). Headers: no-referrer, no-store (+no-cache on POST), nosniff, strict CSP, no scripts. Raw tokens never logged (code-level warn only), never stored, never echoed after consumption. Test count: 566 (was 547; +19).
+- Phase 9-C/9-D: Manager confirmation UI + live click verification. getConfirmationState read projection (pending timestamps, last decision; NOT_FOUND hiding). ConfirmationPanel (request/resend with ConfirmDialog, pending state, resolved blocks; never renders token or URL). Mounted in the Case Detail action rail; timeline icons + labels for the three confirmation events. Live end-to-end on eu-west-dev: real requestConfirmation to the operator-supplied mailbox, operator clicked Yes with no browser warnings, case reached RESOLVED with resolvedBy "resident", exactly one CONFIRMATION_CONFIRMED, zero reuse, zero send_uncertain. Test count: 587 (was 566; +21).
 
 ---
 
@@ -426,6 +427,12 @@ convex/lib/sha256.ts
 convex/cases/confirmation.ts
 ```
 
+Phase 9-C manager confirmation UI:
+
+```text
+src/components/cases/ConfirmationPanel.tsx
+```
+
 convex/http.ts now hosts three routes: POST /webhooks/agentmail, GET /confirm, POST /confirm.
 
 Recommended application structure:
@@ -587,6 +594,7 @@ Watch especially:
 - GET /confirm does not query the database. Do not add a lookup "for validation" — it would introduce a timing oracle.
 - Phase 13 audit candidate: `requireResourceWorkspaceMembership` throws FORBIDDEN not NOT_FOUND, inconsistent with the existence-hiding convention. Not exploitable today; deferred.
 - Phase 12/13 candidate: consumeConfirmation passes "owner" as a placeholder role to the state machine. Add a "resident" actor type so the confirmation path is semantically honest.
+- Deployment env (corrected 9-D — earlier notes implied these were set; they were not): PUBLIC_APP_URL is REQUIRED and was set on eu-west-dev during 9-D (value: the deployment's public convex.site host; never write it here). REALTRAIL_CONFIRMATION_TOKEN_TTL_HOURS is OPTIONAL with a 72h code fallback (still unset — fallback applies). The Phase 10 reminder vars (REALTRAIL_VENDOR_FOLLOWUP_HOURS, REALTRAIL_RESIDENT_REMINDER_HOURS, REALTRAIL_ESCALATION_HOURS) are OPTIONAL with code fallbacks; dashboard.get still hardcodes 4h/24h until Phase 10 reads them. Set them before Phase 10 verification or the fallback behavior is what ships.
 
 ---
 
@@ -609,4 +617,4 @@ Verify the official page immediately before final submission in case requirement
 
 # 13. Next exact task
 
-**Phase 9-C — Manager UI on Case Detail. 'Request confirmation' button (WORK_IN_PROGRESS only). Show pending confirmation state. Surface resident yes/no outcome on the case timeline.**
+**Phase 10 — Reminder and Attention System.**
