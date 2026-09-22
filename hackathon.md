@@ -10,9 +10,9 @@
 - **Components:** none
 - **Convex features:** schema, tables, indexes, queries, mutations, actions, HTTP actions, scheduled functions, realtime queries
 - **Auth:** Clerk
-- **AI models:** none
+- **AI models:** OpenAI Responses API for triage and drafts (model ids via OPENAI_TRIAGE_MODEL / OPENAI_DRAFT_MODEL)
 - **Started:** 2026-09-20T09:11:06Z
-- **Last updated:** 2026-09-22T02:35:16Z
+- **Last updated:** 2026-09-22T03:56:51Z
 
 ## Log
 
@@ -120,3 +120,6 @@ Phase 7-B: live vendor discovery verified. With the provider key set on the depl
 
 ### 2026-09-22 - 33c33fd
 Phase 7-C: vendor UI completing Phase 7. A Vendors screen with table and mobile cards, search, category filter, and an add/edit drawer; a vendor section in Case Detail; and a discovery drawer that searches, shows rank-banded evidence cards, and saves plus auto-links in one flow. Covered with 32 new tests (suite total 435). Handoff updated (33c33fd) (`src/routes/Vendors.tsx`, `src/components/vendors/`, `src/components/cases/VendorDiscoveryDrawer.tsx`).
+
+### 2026-09-22 - 18d4027
+Phase 8-A: outbound drafting and send backend (no UI, no live email yet). AI drafts vendor and resident emails from case context; a human approval gate moves drafts to pending and schedules a send worker with 3-attempt retry, immediate failure on rejections, and no auto-retry on uncertain outcomes. Drafts, approvals, and delivery states are stored per case with timeline activities. Covered with 57 new tests (suite total 492). Convex features: queries, mutations, actions, scheduled functions (`convex/email/draft.ts`, `convex/email/sendPendingCommunication.ts`, `convex/email/mutations.ts`, `convex/email/queries.ts`). Outbound send path wired on the dev deployment; first live email reserved for Phase 8-B verification. Handoff updated (18d4027).
