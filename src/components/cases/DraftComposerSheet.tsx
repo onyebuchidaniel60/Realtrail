@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
@@ -71,71 +71,59 @@ export function DraftComposerSheet({
   const [requestError, setRequestError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // IDs known before the AI request: the arrival watcher only accepts
-  // rows it has never seen, so an older draft can never be mistaken
-  // for the fresh one (no client/server clock comparison involved).
-  const knownIdsRef = useRef<Set<string>>(new Set());
+  // IDs known at AI-request time, captured in the click handler (never a
+  // ref read during render): arrival adoption only accepts rows outside
+  // this set, so an older draft can never be mistaken for the fresh one
+  // with no client/server clock comparison involved.
+  const [aiBaseline, setAiBaseline] = useState<Set<string> | null>(null);
 
-  // Reset the composer every time it opens: either onto the existing
-  // draft row (once loaded) or onto a blank page.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    setSubject("");
-    setBody("");
-    setTypedEmail("");
-    setInstructions("");
-    setEditingDraftId(existingDraftId);
-    setAiSource(false);
+  // Session state below is adopted during render (React's sanctioned
+  // alternative to syncing in effects): the parent remounts this sheet
+  // per composer session via key, so mounts start blank, and async rows
+  // are adopted exactly once when they appear. No setState-in-effect.
+  const [adoptedExistingId, setAdoptedExistingId] = useState<string | null>(
+    null,
+  );
+  const existingRow =
+    existingDraftId !== undefined
+      ? rows?.find((row) => row._id === existingDraftId)
+      : undefined;
+  if (existingRow !== undefined && adoptedExistingId !== existingRow._id) {
+    setAdoptedExistingId(existingRow._id);
+    setSubject(existingRow.subject);
+    setBody(existingRow.textBody);
+    setEditingDraftId(existingRow._id);
+    setAiSource(existingRow.aiDraftSource);
+  }
+
+  const [adoptedArrivalId, setAdoptedArrivalId] = useState<string | null>(
+    null,
+  );
+  const expectedEmail =
+    recipient.type === "vendor" ? recipient.vendorEmail : resolvedEmail();
+  const arrival =
+    requesting && rows !== undefined && aiBaseline !== null
+      ? rows.find(
+          (row) =>
+            row.aiDraftSource &&
+            row.participantType === recipient.type &&
+            !aiBaseline.has(row._id) &&
+            (expectedEmail === undefined ||
+              expectedEmail === "" ||
+              row.toEmails.includes(expectedEmail)),
+        )
+      : undefined;
+  // Adopted rows are never trusted as sent — sending goes through the
+  // confirmation dialog's approveSend call only.
+  if (arrival !== undefined && adoptedArrivalId !== arrival._id) {
+    setAdoptedArrivalId(arrival._id);
+    setSubject(arrival.subject);
+    setBody(arrival.textBody);
+    setEditingDraftId(arrival._id);
+    setAiSource(true);
     setRequesting(false);
     setRequestError(null);
-    setConfirmOpen(false);
-    knownIdsRef.current = new Set();
-  }, [open, existingDraftId]);
-
-  // Populate from the existing draft row once the query resolves.
-  useEffect(() => {
-    if (!open || existingDraftId === undefined || rows === undefined) {
-      return;
-    }
-    const found = rows.find((row) => row._id === existingDraftId);
-    if (found !== undefined) {
-      setSubject(found.subject);
-      setBody(found.textBody);
-      setAiSource(found.aiDraftSource);
-    }
-  }, [open, existingDraftId, rows]);
-
-  // AI arrival watcher: after "Draft with AI", the first unseen
-  // AI-sourced row for this recipient populates the editor. Rows are
-  // never trusted as sent — sending goes through the confirmation
-  // dialog's approveSend call only.
-  useEffect(() => {
-    if (!requesting || rows === undefined) {
-      return;
-    }
-    const expectedEmail =
-      recipient.type === "vendor" ? recipient.vendorEmail : resolvedEmail();
-    const arrival = rows.find(
-      (row) =>
-        row.aiDraftSource &&
-        row.participantType === recipient.type &&
-        !knownIdsRef.current.has(row._id) &&
-        (expectedEmail === undefined ||
-          expectedEmail === "" ||
-          row.toEmails.includes(expectedEmail)),
-    );
-    if (arrival !== undefined) {
-      setSubject(arrival.subject);
-      setBody(arrival.textBody);
-      setEditingDraftId(arrival._id);
-      setAiSource(true);
-      setRequesting(false);
-      setRequestError(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requesting, rows]);
+  }
 
   function resolvedEmail(): string {
     if (recipient.type === "vendor") {
@@ -161,7 +149,7 @@ export function DraftComposerSheet({
       : undefined;
 
   async function handleAiDraft() {
-    knownIdsRef.current = new Set((rows ?? []).map((row) => row._id));
+    setAiBaseline(new Set((rows ?? []).map((row) => row._id)));
     setRequesting(true);
     setRequestError(null);
     try {

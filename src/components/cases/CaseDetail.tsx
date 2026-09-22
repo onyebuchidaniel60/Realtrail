@@ -393,6 +393,7 @@ export function CaseDetail({
       )}
       {composer !== null && (
         <DraftComposerSheet
+          key={composer.existingDraftId ?? `new-${record._id}-${composer.recipient.type}`}
           caseId={record._id}
           caseNumber={record.caseNumber}
           caseTitle={record.title}

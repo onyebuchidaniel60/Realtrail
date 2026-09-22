@@ -7,6 +7,8 @@ import { DraftComposerSheet } from "./DraftComposerSheet";
 
 const mockUseQuery = vi.hoisted(() => vi.fn());
 const mockRequestAiDraft = vi.hoisted(() =>
+  // Params keep the mock's call signature typed; assertions inspect calls.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   vi.fn(async (..._args: unknown[]): Promise<unknown> => ({
     scheduled: true,
   })),
@@ -24,6 +26,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const mockMutate = vi.hoisted(() =>
+  // Params keep the mock's call signature typed; assertions inspect calls.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   vi.fn(async (..._args: unknown[]): Promise<unknown> => ({})),
 );
 
