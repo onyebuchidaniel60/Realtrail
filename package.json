@@ -10,10 +10,12 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test:once": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deploy": "npx @convex-dev/static-hosting deploy"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.10",
+    "@convex-dev/static-hosting": "^0.2.1",
     "@fontsource-variable/geist": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "class-variance-authority": "^0.7.1",
