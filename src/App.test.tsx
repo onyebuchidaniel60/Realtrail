@@ -69,4 +69,12 @@ describe("App routing", () => {
     expect(container.querySelector("aside")).not.toBeNull();
     expect(container.querySelector("main")).not.toBeNull();
   });
+
+  it("exposes the mobile menu toggle with an accessible name", () => {
+    authState.isSignedIn = true;
+    renderAt("/overview");
+    expect(
+      screen.getByRole("button", { name: "Open menu" }),
+    ).toBeInTheDocument();
+  });
 });

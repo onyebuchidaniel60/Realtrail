@@ -274,8 +274,8 @@ export function CasesPage() {
         <section
           className={
             showDetail
-              ? "hidden flex-1 flex-col gap-6 xl:flex"
-              : "flex flex-1 flex-col gap-6"
+              ? "hidden min-w-0 flex-1 flex-col gap-6 xl:flex"
+              : "flex min-w-0 flex-1 flex-col gap-6"
           }
         >
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

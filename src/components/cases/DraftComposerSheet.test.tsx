@@ -318,4 +318,12 @@ describe("DraftComposerSheet", () => {
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
   });
+
+  it("requests close on Escape (keyboard dismissal)", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    renderComposer({ onOpenChange });
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

@@ -62,13 +62,13 @@ function CommunicationItem({
           <StatusBadge variant="brand">AI-generated</StatusBadge>
         )}
       </p>
-      <p className="text-sm font-medium">{row.subject}</p>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm font-medium break-words">{row.subject}</p>
+      <p className="text-xs text-muted-foreground break-words">
         {row.fromEmail} → {row.toEmails.join(", ") || "—"}
       </p>
       {/* Plain text by construction: React escapes content, and no HTML
           is ever interpreted here (AGENTS.md §8/§11). */}
-      <p className="text-sm whitespace-pre-wrap">{row.textBody}</p>
+      <p className="text-sm whitespace-pre-wrap break-words">{row.textBody}</p>
       {row.status === "draft" && (
         <div>
           <button

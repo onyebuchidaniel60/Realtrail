@@ -241,17 +241,19 @@ export function CaseDetail({
       <AISummaryCard record={record} onReview={() => setReviewOpen(true)} />
 
       <section className="rounded-xl border bg-card p-6">
-        <h2 className="font-medium">Issue</h2>        <p className="mt-2 text-sm whitespace-pre-wrap">{record.description}</p>
+        <h2 className="font-medium">Issue</h2>        <p className="mt-2 text-sm whitespace-pre-wrap break-words">{record.description}</p>
         <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
           <dt className="text-muted-foreground">Category</dt>
-          <dd>{record.category}</dd>
+          <dd className="min-w-0 break-words">{record.category}</dd>
           <dt className="text-muted-foreground">Reporter</dt>
-          <dd>
+          <dd className="min-w-0 break-words">
             {record.reporterName ?? "—"}
             {record.reporterEmail ? ` (${record.reporterEmail})` : ""}
           </dd>
           <dt className="text-muted-foreground">Created</dt>
-          <dd>{new Date(record.createdAt).toLocaleString()}</dd>
+          <dd className="min-w-0 break-words">
+            {new Date(record.createdAt).toLocaleString()}
+          </dd>
         </dl>
       </section>
 

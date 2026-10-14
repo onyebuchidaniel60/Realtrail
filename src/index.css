@@ -163,9 +163,11 @@
 /* Minimum 44px touch targets on coarse pointers (mobile). Scoped to
    pointer:coarse so desktop density is untouched. Buttons grow to 44px
    tall; icon-only buttons also grow to 44px wide; sidebar nav links
-   (flex anchors) grow tall. Icon-only *links* are handled at their two
-   call sites (VendorCard, vendors table) since global `a` rules would
-   disturb inline text links. */
+   (flex anchors) grow tall; form controls grow so a finger lands on the
+   right control. Icon-only *links* are handled at their two call sites
+   (VendorCard, vendors table) since a global `a` rule would disturb
+   inline text links (RecentActivityList, ReviewTriageSheet,
+   LinkToCaseDialog render prose links). */
 @layer components {
   @media (pointer: coarse) {
     button {
@@ -175,6 +177,11 @@
       min-width: 44px;
     }
     nav a {
+      min-height: 44px;
+    }
+    input,
+    select,
+    textarea {
       min-height: 44px;
     }
   }

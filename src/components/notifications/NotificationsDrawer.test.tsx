@@ -189,4 +189,19 @@ describe("SidebarNav notifications badge", () => {
       screen.queryByLabelText(/unread notifications/),
     ).toBeNull();
   });
+
+  it("trigger stays a named button when the badge is shown", () => {
+    unread = 2;
+    render(
+      <MemoryRouter>
+        <SidebarNav />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("button", { name: /Notifications/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("2 unread notifications"),
+    ).toBeInTheDocument();
+  });
 });

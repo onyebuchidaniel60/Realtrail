@@ -102,7 +102,7 @@ export function InboxPage() {
           <section
             aria-label="Conversations"
             className={cn(
-              "min-h-0 flex-col",
+              "min-h-0 min-w-0 flex-col",
               threadId !== null
                 ? "hidden md:flex md:w-[280px] md:shrink-0 xl:w-[360px]"
                 : "flex flex-1 md:w-[280px] md:shrink-0 xl:w-[360px]",

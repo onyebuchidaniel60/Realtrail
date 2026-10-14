@@ -36,8 +36,19 @@ export function CaseTable({
           {cases.map((record) => (
             <tr
               key={record._id}
+              // Keyboard parity with the click target: rows are the only
+              // way to open a case from the table, so they must be
+              // focusable and activatable (AGENTS.md §12 a11y pass).
+              tabIndex={0}
+              aria-current={record._id === selectedId ? "true" : undefined}
               onClick={() => onSelect(record._id)}
-              className={`cursor-pointer border-b last:border-0 hover:bg-accent/50 ${
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(record._id);
+                }
+              }}
+              className={`cursor-pointer border-b last:border-0 hover:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring ${
                 record._id === selectedId ? "bg-accent" : ""
               }`}
             >
