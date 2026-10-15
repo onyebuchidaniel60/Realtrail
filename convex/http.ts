@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
+import { registerStaticRoutes } from "@convex-dev/static-hosting";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { ConvexError } from "convex/values";
 import { sha256Hex, verifySvixSignature } from "./lib/providers/svix";
 
@@ -354,5 +355,10 @@ http.route({
     );
   }),
 });
+
+// Static-hosting SPA catch-all (app-owned root mode). Exact
+// /webhooks/agentmail and /confirm routes above win over the static
+// catch-all, so webhook and confirmation URLs stay at the root.
+registerStaticRoutes(http, components.staticHosting);
 
 export default http;
